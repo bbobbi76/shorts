@@ -109,3 +109,20 @@ npx.cmd --yes --package @playwright/cli playwright-cli --session=learning-admin 
 검사용 MP4를 생성할 때는 브라우저를 전면에 둡니다. 녹화 결과가 빈 파일이면 검사를 중단하고 안내하므로 전면 상태에서 다시 실행합니다.
 
 API 계약 화면 검사는 별도 터미널에서 `$env:VITE_DATA_MODE='api'`를 설정한 뒤 `npm.cmd run dev -- --port 5174`로 실행하고, 별도 Playwright 세션에서 `scripts/browser-api.cjs`를 실행합니다. 이 검사는 HTTP 응답을 대체하며 실제 백엔드 검증이 아닙니다.
+
+## 사용자 학습 화면 목업
+
+- `/learn`: 자연어 질문 입력과 고정된 예시 영상 결과
+- `/learn/preview`: 학습 영상 영역, 실습 과제·확인 문제, AI 피드백 예시
+- `/learn/courses`: 기존 공개 과정 목록
+
+새 사용자 화면은 화면 구성 확인용입니다. 실제 자연어 검색, 강의 영상 연결, 과제 제출·채점, AI 분석, 학습 기록 저장을 수행하지 않습니다. 버튼은 탭·화면 이동과 예시 피드백 표시만 바꿉니다. 관리자 기능과 기존 공개 과정·콘텐츠 경로는 별도로 유지합니다.
+
+## 관리자 AI 퀴즈 화면 (로컬 목업)
+
+콘텐츠 편집 화면의 `03 AI 퀴즈`에서 참고 파일·텍스트, 문항 수·난이도와 추가 요청을 입력하고 퀴즈 예시를 확인할 수 있습니다. 생성된 초안은 수정·개별 삭제·전체 삭제·삭제 취소가 가능하며 화면 상태만 변경합니다. 실제 파일 전송·내용 분석·AI 생성·DB 저장은 없고, 기존 콘텐츠 퀴즈 저장과 연결하지 않았습니다.
+
+로컬 브라우저에서 참고 파일 선택, 예시 3문항 추가, 문제 수정 반영, 개별 삭제 후 2문항·복원 후 3문항, 전체 삭제 후 0문항·복원을 확인했습니다. 빌드를 통과했습니다. 캡처: [참고 자료 첨부](docs/screenshots/38-admin-quiz-reference.png), [퀴즈 생성·관리](docs/screenshots/39-admin-quiz-drafts.png), [퀴즈 수정](docs/screenshots/40-admin-quiz-edit.png).
+
+사용자 화면 캡처: [자연어 검색](docs/screenshots/35-natural-search.png), [실습·피드백](docs/screenshots/36-task-feedback.png), [문제·피드백](docs/screenshots/37-quiz-feedback.png).
+
