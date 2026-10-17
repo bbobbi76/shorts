@@ -1,0 +1,6 @@
+{
+  "task_title": "영업팀 매출 합계 구하기",
+  "task_instruction": "A열은 팀 이름, B열은 매출입니다. 영업팀의 매출 합계를 구하는 엑셀 수식을 작성하세요.",
+  "expected_answer": "=SUMIF(A:A,\"영업팀\",B:B)",
+  "learner_answer": "=SUMIF(A:A,\"영업팀\")"
+}
