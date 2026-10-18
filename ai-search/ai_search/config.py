@@ -5,7 +5,7 @@ from pathlib import Path
 SEARCH_ROOT = Path(__file__).resolve().parent.parent
 
 # 모드마다 점수 분포가 달라서 기본 컷오프도 다르게 둔다
-DEFAULT_MIN_SCORE = {"mock": 0.1, "gemini": 0.55}
+DEFAULT_MIN_SCORE = {"mock": 0.1, "gemini": 0.65}
 
 
 def _load_dotenv() -> None:
@@ -56,7 +56,7 @@ def load_settings() -> Settings:
         provider=provider,
         gemini_api_key=api_key,
         gemini_embedding_model=os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001"),
-        gemini_refine_model=os.getenv("GEMINI_REFINE_MODEL", "gemini-flash-latest"),
+        gemini_refine_model=os.getenv("GEMINI_REFINE_MODEL", "gemini-flash-lite-latest"),
         gemini_refine=os.getenv("GEMINI_REFINE", "true").lower() == "true",
         chroma_path=chroma_path,
         min_score=float(min_score) if min_score else DEFAULT_MIN_SCORE[provider],

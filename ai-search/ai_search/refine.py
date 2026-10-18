@@ -15,7 +15,8 @@ PROMPT = """너는 직장인 실무 교육 숏폼 영상의 검색어를 다듬�
 class GeminiRefiner:
     """질문을 검색어로 다듬는다. 실패하면 None을 돌려 원문으로 검색하게 한다."""
 
-    def __init__(self, api_key: str, model: str, timeout_seconds: float = 5.0):
+    # Gemini API는 10초보다 짧은 deadline을 거부한다 (400 INVALID_ARGUMENT)
+    def __init__(self, api_key: str, model: str, timeout_seconds: float = 10.0):
         from google import genai
         from google.genai import types
 

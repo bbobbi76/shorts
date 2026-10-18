@@ -10,7 +10,7 @@
 | 모드 (`SEARCH_PROVIDER`) | 임베딩 | 질문 정제 | 용도 |
 |---|---|---|---|
 | `mock` (기본) | 글자 해시 (키·네트워크 없음) | 안 함 | 개발·연동. 응답 형식은 실제와 같음 |
-| `gemini` | `gemini-embedding-001` | Gemini (실패하면 원문으로 검색) | 실제 검색 |
+| `gemini` | `gemini-embedding-001` | `gemini-flash-lite-latest` (실패하면 원문으로 검색) | 실제 검색 |
 
 ## 실행 (ai-search 폴더에서, Python 3.12)
 
@@ -107,4 +107,4 @@ service.delete_video(str(content.id))                                           
 
 - ChromaDB 데이터(`chroma_data/`)는 깃에 올리지 않습니다. 자막 JSON에서 `index_subtitles`로 다시 만듭니다.
 - mock과 gemini는 컬렉션이 따로라서 모드를 바꾸면 그 모드로 한 번 인덱싱해야 합니다. 임베딩 모델을 바꿀 때도 같습니다.
-- `MIN_SCORE`(기본 mock 0.1, gemini 0.55)보다 점수가 낮은 결과는 버립니다. gemini 값은 실제 자막으로 검색해 보고 조정하세요.
+- `MIN_SCORE`(기본 mock 0.1, gemini 0.65)보다 점수가 낮은 결과는 버립니다. gemini 0.65는 샘플 자막 3개로 정한 값(관련 질문 1위 0.68~0.82, 관련 없는 질문 0.60 이하)이라 실제 자막이 늘면 다시 확인하세요.
