@@ -22,6 +22,7 @@ copy .env.example .env                          # gemini 모드면 GEMINI_API_KE
 .venv\Scripts\python -m scripts.index_subtitles # data/subtitles.json 인덱싱 (모드별로 한 번씩)
 .venv\Scripts\python -m uvicorn dev_server:app --port 8001
 .venv\Scripts\python -m pytest                  # 테스트 (키 없이 동작)
+.venv\Scripts\python -m scripts.evaluate_search # 질문 목록으로 검색 품질·점수 분포 확인
 ```
 
 API 문서: http://localhost:8001/docs
@@ -102,9 +103,11 @@ service.delete_video(str(content.id))                                           
 [{ "video_id": "1", "title": "...", "segments": [{ "start": 0.0, "end": 6.5, "text": "..." }] }]
 ```
 
-지금은 초기 범위(엑셀 실무 기초) 영상 3개의 **임시 자막**입니다. `video_id` 1~3은 임시 값이라 백엔드 DB가 생기면 실제 Content.id로 맞춥니다.
+지금은 초기 범위(엑셀 실무 기초) 영상 10개의 **임시 자막**입니다. `video_id` 1~10은 임시 값이라 백엔드 DB가 생기면 실제 Content.id로 맞춥니다.
+테스트는 데이터가 늘어도 흔들리지 않게 처음 3개 영상만 씁니다.
 자막은 3줄씩(1줄 겹침) 묶어 임베딩하고, 영상 제목을 앞에 붙여서 자막에 기능 이름이 없어도 검색되게 합니다.
 
 - ChromaDB 데이터(`chroma_data/`)는 깃에 올리지 않습니다. 자막 JSON에서 `index_subtitles`로 다시 만듭니다.
 - mock과 gemini는 컬렉션이 따로라서 모드를 바꾸면 그 모드로 한 번 인덱싱해야 합니다. 임베딩 모델을 바꿀 때도 같습니다.
-- `MIN_SCORE`(기본 mock 0.1, gemini 0.65)보다 점수가 낮은 결과는 버립니다. gemini 0.65는 샘플 자막 3개로 정한 값(관련 질문 1위 0.68~0.82, 관련 없는 질문 0.60 이하)이라 실제 자막이 늘면 다시 확인하세요.
+- `MIN_SCORE`(기본 mock 0.1, gemini 0.65)보다 점수가 낮은 결과는 버립니다. gemini 0.65는 `evaluate_search`로 샘플 영상 10개·질문 24개를 검색해 정한 값입니다(관련 질문 1위 0.70~0.83, 관련 없는 질문 0.62 이하). 자막이 늘면 질문을 추가해 다시 확인하세요.
+- mock 모드는 글자 모양만 비교하므로 점수로 관련 여부를 정확히 가르지 못합니다. 검색 품질은 gemini 모드로 확인하세요.
