@@ -135,5 +135,15 @@
       {"start": 52.0, "end": 62.0, "text": "오류가 날 수밖에 없는 칸은 IFERROR로 감싸서 빈칸이나 0으로 보이게 할 수 있어요."},
       {"start": 62.0, "end": 70.0, "text": "다만 IFERROR는 원인을 숨기니 먼저 원인을 확인하고 쓰는 게 좋습니다."}
     ]
+  },
+  {
+    "video_id": "11",
+    "title": "조건부 서식으로 목표 미달 칸 강조하기",
+    "subtitle_file": "samples/conditional_format.srt"
+  },
+  {
+    "video_id": "12",
+    "title": "틀 고정으로 제목 줄 고정하기",
+    "subtitle_file": "samples/freeze_panes.smi"
   }
 ]

@@ -101,14 +101,42 @@ service.delete_video(str(content.id))                                           
 ## 자막 데이터 (`data/subtitles.json`)
 
 ```json
-[{ "video_id": "1", "title": "...", "segments": [{ "start": 0.0, "end": 6.5, "text": "..." }] }]
+[
+  { "video_id": "1", "title": "...", "segments": [{ "start": 0.0, "end": 6.5, "text": "..." }] },
+  { "video_id": "11", "title": "...", "subtitle_file": "samples/conditional_format.srt" }
+]
 ```
 
-지금은 초기 범위(엑셀 실무 기초) 영상 10개의 **임시 자막**입니다. `video_id` 1~10은 임시 값이라 백엔드 DB가 생기면 실제 Content.id로 맞춥니다.
+자막을 `segments`로 직접 쓰거나, `subtitle_file`로 자막 파일을 가리킵니다(JSON 기준 상대 경로).
+지금은 초기 범위(엑셀 실무 기초) 영상 12개의 **임시 자막**입니다. 10개는 JSON에 직접 썼고, 11번은 SRT, 12번은 SMI(CP949) 샘플 파일입니다. `video_id`는 임시 값이라 백엔드 DB가 생기면 실제 Content.id로 맞춥니다.
 테스트는 데이터가 늘어도 흔들리지 않게 처음 3개 영상만 씁니다.
 자막은 3줄씩(1줄 겹침) 묶어 임베딩하고, 영상 제목을 앞에 붙여서 자막에 기능 이름이 없어도 검색되게 합니다.
 
 - ChromaDB 데이터(`chroma_data/`)는 깃에 올리지 않습니다. 자막 JSON에서 `index_subtitles`로 다시 만듭니다.
+- `index_subtitles`로 인덱스를 바꾼 뒤에는 실행 중인 서버를 다시 켜야 반영됩니다. 서버가 켜질 때 읽은 인덱스를 계속 쓰기 때문입니다. (백엔드 안에서 `index_video`를 부르는 경우는 같은 프로세스라 바로 반영됩니다.)
 - mock과 gemini는 컬렉션이 따로라서 모드를 바꾸면 그 모드로 한 번 인덱싱해야 합니다. 임베딩 모델을 바꿀 때도 같습니다.
-- `MIN_SCORE`(기본 mock 0.1, gemini 0.65)보다 점수가 낮은 결과는 버립니다. gemini 0.65는 `evaluate_search`로 샘플 영상 10개·질문 24개를 검색해 정한 값입니다(관련 질문 1위 0.70~0.83, 관련 없는 질문 0.62 이하). 자막이 늘면 질문을 추가해 다시 확인하세요.
+- `MIN_SCORE`(기본 mock 0.1, gemini 0.65)보다 점수가 낮은 결과는 버립니다. gemini 0.65는 `evaluate_search`로 샘플 영상 12개·질문 28개를 검색해 정한 값입니다(관련 질문 1위 0.70~0.83, 관련 없는 질문 0.62 이하). 자막이 늘면 질문을 추가해 다시 확인하세요.
 - mock 모드는 글자 모양만 비교하므로 점수로 관련 여부를 정확히 가르지 못합니다. 검색 품질은 gemini 모드로 확인하세요.
+
+## 자막 파일 (SRT · VTT · SMI)
+
+`read_subtitle_file(경로)`가 확장자로 형식을 골라 `Segment` 목록으로 바꿉니다. UTF-8이 아니면 CP949로 읽습니다.
+
+| 형식 | 처리 |
+|---|---|
+| SRT | 번호 줄 무시, 여러 줄 자막은 한 줄로 합침, `<i>` 같은 꾸밈 태그 제거 |
+| VTT | `WEBVTT` 헤더·`NOTE`·큐 설정(`align:` 등) 무시, 시 단위 생략 표기(`00:01.000`) 지원 |
+| SMI | 다음 `SYNC` 시작이 앞 자막의 끝, `&nbsp;`는 자막 지움. 언어가 여러 개면 `KR`이 들어간 클래스(KRCC 등)를 사용 |
+
+```powershell
+.venv\Scripts\python -m scripts.index_subtitles 자막.smi --video-id 12 --title "틀 고정으로 제목 줄 고정하기"
+```
+
+백엔드에서 관리자가 올린 자막 파일(`files.file_type = SUBTITLE`)을 인덱싱할 때:
+
+```python
+from ai_search import get_search_service, read_subtitle_file
+
+segments = read_subtitle_file(저장된_자막_경로)
+get_search_service().index_video(str(content.id), segments, title=content.title)
+```
