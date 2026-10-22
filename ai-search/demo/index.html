@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 자막 검색 데모</title>
+<style>
+  :root {
+    --green: #1e5040;
+    --green-soft: #e6efe9;
+    --ink: #1f2a24;
+    --muted: #66706a;
+    --line: #d6ddd8;
+    --bg: #f5f7f5;
+    --warn: #8a5a00;
+    --warn-soft: #fff6e0;
+    --error: #a33a2c;
+    --error-soft: #fdeeea;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 "맑은 고딕", "Malgun Gothic", system-ui, sans-serif; }
+  header { background: #fff; border-bottom: 1px solid var(--line); }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; padding-bottom: 16px; }
+  h1 { margin: 0; font-size: 20px; }
+  .mode { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--green-soft); color: var(--green); white-space: nowrap; }
+  .mode.mock { background: var(--warn-soft); color: var(--warn); }
+  main.wrap { padding-top: 32px; padding-bottom: 64px; }
+  .intro { color: var(--muted); margin: 0 0 20px; }
+  form { display: flex; gap: 8px; }
+  input[type=search] { flex: 1; min-width: 0; font: inherit; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  input[type=search]:focus { outline: 2px solid var(--green); outline-offset: 1px; }
+  button { font: inherit; cursor: pointer; }
+  .go { padding: 0 22px; border: 0; border-radius: 10px; background: var(--green); color: #fff; font-weight: 700; }
+  .go:disabled { opacity: .6; cursor: wait; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .examples span { color: var(--muted); font-size: 14px; padding: 6px 0; }
+  .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 14px; color: var(--ink); }
+  .chip:hover { border-color: var(--green); color: var(--green); }
+  .status { margin: 28px 0 12px; font-size: 14px; color: var(--muted); min-height: 22px; }
+  .status b { color: var(--ink); }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .title { margin: 0; font-size: 17px; }
+  .rank { color: var(--green); margin-right: 6px; }
+  .score { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .score i { display: inline-block; width: 64px; height: 6px; border-radius: 3px; background: var(--green-soft); margin-left: 6px; vertical-align: middle; overflow: hidden; }
+  .score i::after { content: ""; display: block; height: 100%; width: var(--w); background: var(--green); }
+  .time { display: inline-block; margin: 10px 0 6px; font-weight: 700; color: var(--green); background: var(--green-soft); padding: 2px 10px; border-radius: 6px; font-size: 14px; }
+  .quote { margin: 0; color: var(--ink); border-left: 3px solid var(--line); padding-left: 12px; }
+  .moments { margin: 12px 0 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
+  .moments li { padding: 4px 0; border-top: 1px dashed var(--line); }
+  .moments b { color: var(--ink); font-weight: 600; margin-right: 6px; }
+  .notice { border-radius: 12px; padding: 18px 20px; }
+  .notice.empty { background: #fff; border: 1px solid var(--line); }
+  .notice.error { background: var(--error-soft); color: var(--error); }
+  .notice p { margin: 0; }
+  .notice p + p { margin-top: 6px; color: var(--muted); font-size: 14px; }
+  .reset { margin-top: 12px; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 12px; font-size: 14px; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 32px; }
+  @media (max-width: 560px) {
+    form { flex-direction: column; }
+    .go { padding: 12px; }
+    .card-head { flex-direction: column; gap: 2px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>AI 자막 검색 데모</h1>
+    <span class="mode" id="mode">모드 확인 중</span>
+  </div>
+</header>
+<main class="wrap">
+  <p class="intro">업무 상황을 그대로 물어보면, 자막을 기준으로 어떤 영상의 몇 초부터 보면 되는지 찾아줍니다.</p>
+  <form id="form">
+    <input type="search" id="query" maxlength="200" placeholder="예: 이번 달 부서별 매출 합치려면?" autocomplete="off" aria-label="검색할 질문">
+    <button class="go" id="go" type="submit">검색</button>
+  </form>
+  <div class="examples" id="examples"><span>이렇게 물어보세요</span></div>
+  <div class="status" id="status" role="status"></div>
+  <section id="results" aria-live="polite"></section>
+  <footer id="footer"></footer>
+</main>
+<script>
+  const EXAMPLES = [
+    "이번 달 부서별 매출 합치려면?",
+    "고객 명단에 같은 사람이 여러 번 들어가 있어",
+    "주말 빼고 프로젝트 기간이 며칠인지",
+    "수식에 샵 N/A가 떠요",
+    "한 칸에 이름이랑 부서가 쉼표로 붙어 있어",
+  ];
+  const $ = id => document.getElementById(id);
+  let titles = {};
+
+  const time = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const range = r => `${time(r.start)} ~ ${time(r.end)}`;
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+  fetch("/demo/info").then(r => r.json()).then(info => {
+    titles = info.videos;
+    const mode = $("mode");
+    mode.textContent = info.provider === "gemini" ? `Gemini 모드${info.refine ? " · 질문 정제 켬" : ""}` : "mock 모드 (개발용)";
+    mode.classList.toggle("mock", info.provider !== "gemini");
+    $("footer").textContent = `샘플 영상 ${Object.keys(titles).length}개의 임시 자막 · 유사도 ${info.min_score} 미만 결과는 표시하지 않음`;
+  });
+
+  for (const q of EXAMPLES) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = q;
+    b.onclick = () => { $("query").value = q; search(); };
+    $("examples").append(b);
+  }
+  $("form").onsubmit = e => { e.preventDefault(); search(); };
+
+  async function search() {
+    const query = $("query").value.trim();
+    if (!query) { $("query").focus(); return; }
+    $("go").disabled = true;
+    $("status").textContent = "검색 중...";
+    $("results").innerHTML = "";
+    const started = performance.now();
+    try {
+      const res = await fetch("/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, top_k: 5 }) });
+      const body = await res.json();
+      const sec = ((performance.now() - started) / 1000).toFixed(1);
+      if (!res.ok) return showError(res.status, body.detail);
+      $("status").innerHTML = (body.refined_query ? `정제된 검색어 <b>${esc(body.refined_query)}</b> · ` : "") + `결과 ${body.results.length}개 · ${sec}초`;
+      body.results.length ? render(body.results) : showEmpty();
+    } catch {
+      showError(0);
+    } finally {
+      $("go").disabled = false;
+    }
+  }
+
+  function render(results) {
+    $("results").innerHTML = results.map((r, i) => `
+      <article class="card">
+        <div class="card-head">
+          <h2 class="title"><span class="rank">${i + 1}</span>${esc(titles[r.video_id] || `영상 ${r.video_id}`)}</h2>
+          <span class="score">유사도 ${r.score.toFixed(2)}<i style="--w:${Math.round(r.score * 100)}%"></i></span>
+        </div>
+        <span class="time">▶ ${range(r)} 구간부터 재생</span>
+        <p class="quote">${esc(r.text)}</p>
+        ${r.moments.length ? `<ul class="moments">${r.moments.map(m => `<li><b>${range(m)}</b>${esc(m.text)}</li>`).join("")}</ul>` : ""}
+      </article>`).join("");
+  }
+
+  function showEmpty() {
+    $("results").innerHTML = `<div class="notice empty"><p>질문과 관련된 영상을 찾지 못했어요.</p><p>다른 말로 바꾸거나 업무 상황을 조금 더 자세히 적어 보세요.</p><button class="reset" type="button" onclick="resetSearch()">검색 조건 초기화</button></div>`;
+  }
+
+  function showError(status, detail) {
+    $("status").textContent = "";
+    const msg = status === 503 ? (detail || "AI 검색을 일시적으로 사용할 수 없습니다.") : status === 422 ? "검색어는 1~200자로 입력해 주세요." : "서버에 연결하지 못했어요.";
+    $("results").innerHTML = `<div class="notice error"><p>${esc(String(msg))}</p><p>잠시 후 다시 시도해 주세요.</p></div>`;
+  }
+
+  function resetSearch() {
+    $("query").value = ""; $("status").textContent = ""; $("results").innerHTML = ""; $("query").focus();
+  }
+</script>
+</body>
+</html>

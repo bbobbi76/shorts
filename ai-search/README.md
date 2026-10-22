@@ -25,6 +25,7 @@ copy .env.example .env                          # gemini 모드면 GEMINI_API_KE
 .venv\Scripts\python -m scripts.evaluate_search # 질문 목록으로 검색 품질·점수 분포 확인
 ```
 
+데모 화면: http://localhost:8001/ (검색 결과를 영상 제목·구간·자막·점수로 보여줌)
 API 문서: http://localhost:8001/docs
 
 ## 백엔드에 붙이기
