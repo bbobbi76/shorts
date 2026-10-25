@@ -1,18 +1,45 @@
-export type Status = 'DRAFT' | 'PUBLISHED' | 'PRIVATE';
+export type Status = 'DRAFT' | 'REVIEW' | 'PUBLISHED' | 'HIDDEN';
+export type CourseStatus = Exclude<Status, 'REVIEW'>;
+export type Level = 'INTRO' | 'BASIC' | 'ADVANCED';
+export interface Category { id: string; name: string; categoryType: 'JOB' | 'COMMON' }
+export interface Skill { id: string; categoryId: string; name: string; description: string }
+export interface SearchTag { id: string; name: string; tagType: 'SITUATION' | 'ERROR' | 'FUNCTION' | 'TOOL'; synonyms: string[] }
+export interface WorkResource { id: string; title: string; resourceType: 'TEMPLATE' | 'EXAMPLE_DOC' | 'PROMPT'; description: string; file: Media | null; promptText: string; categoryId: string; status: CourseStatus }
+export interface OptionFeedback { feedback: string; feedbackSource: 'NONE' | 'AI_DRAFT' | 'ADMIN'; rewatchSec: number | null }
+export interface PracticeSettings { title: string; expectedResult: string; resultType: 'NUMBER' | 'TEXT'; tolerance: number; requiredFunction: string; answerFormula: string }
+export interface Subtitle { id: string; startSec: number; endSec: number; text: string }
+export interface Catalog { tags: SearchTag[]; resources: WorkResource[] }
+export const levelLabels: Record<Level, string> = { INTRO: '입문', BASIC: '기초', ADVANCED: '응용' };
+export const categories: Category[] = [
+  { id: '1', name: '기획', categoryType: 'JOB' }, { id: '2', name: '마케팅', categoryType: 'JOB' }, { id: '3', name: '인사', categoryType: 'JOB' },
+  { id: '4', name: '엑셀', categoryType: 'COMMON' }, { id: '5', name: '문서 작성', categoryType: 'COMMON' }, { id: '6', name: 'AI 업무 활용', categoryType: 'COMMON' },
+];
+export const skills: Skill[] = [
+  { id: '1', categoryId: '4', name: '기본 조작', description: '서식, 정렬, 필터, 단축키' },
+  { id: '2', categoryId: '4', name: '함수 활용', description: 'SUM, IF, SUMIF, VLOOKUP 등' },
+  { id: '3', categoryId: '4', name: '데이터 집계', description: '조건별 합계, 피벗 테이블' },
+];
+export const categoryName = (id: string) => categories.find(c => c.id === id)?.name ?? '분야 미지정';
+export const emptyFeedback = (): OptionFeedback => ({ feedback: '', feedbackSource: 'NONE', rewatchSec: null });
+export const emptyPractice = (): PracticeSettings => ({ title: '', expectedResult: '', resultType: 'NUMBER', tolerance: 0, requiredFunction: '', answerFormula: '' });
 export type MediaKind = 'video' | 'thumbnail' | 'practice' | 'resource';
 export interface Course {
-  id: string; title: string; description: string; objective: string;
-  job: string; topic: string; level: '기초' | '응용'; updatedAt: string;
+  id: string; title: string; summary: string; learningGoal: string;
+  categoryId: string; level: Level; status: CourseStatus; thumbnail: Media | null; updatedAt: string;
+  legacyClassification?: { job: string; topic: string };
 }
 export interface Media {
   id: string; name: string; size: number; type: string; kind: MediaKind;
   url?: string; duration?: number; width?: number; height?: number;
 }
 export interface Content {
-  id: string; courseId: string; title: string; objective: string; status: Status;
+  id: string; courseId: string; title: string; learningGoal: string; status: Status;
+  workUse: string; sortOrder: number; version: number;
   video: Media | null; thumbnail: Media | null;
   quiz: { question: string; options: string[]; correctIndex: number; explanation: string };
   practiceText: string; practice: Media | null; resource: Media | null;
+  optionFeedbacks: OptionFeedback[]; practiceSettings: PracticeSettings;
+  tagIds: string[]; skillIds: string[]; resourceIds: string[]; subtitles: Subtitle[];
   updatedAt: string;
 }
 export interface Session { name: string; role: 'admin' | 'member' }
@@ -33,9 +60,9 @@ export interface Repository {
 export class ServiceError extends Error {
   constructor(message: string, public status = 0, public fields: string[] = []) { super(message); }
 }
-export const statusLabels: Record<Status, string> = { DRAFT: '임시저장', PUBLISHED: '공개', PRIVATE: '비공개' };
-export const emptyCourse = (): Course => ({ id: crypto.randomUUID(), title: '', description: '', objective: '', job: '공통 실무', topic: '엑셀', level: '기초', updatedAt: '' });
-export const emptyContent = (): Content => ({ id: crypto.randomUUID(), courseId: '', title: '', objective: '', status: 'DRAFT', video: null, thumbnail: null, quiz: { question: '', options: ['', '', '', ''], correctIndex: -1, explanation: '' }, practiceText: '', practice: null, resource: null, updatedAt: '' });
+export const statusLabels: Record<Status, string> = { DRAFT: '임시저장', REVIEW: '검수', PUBLISHED: '공개', HIDDEN: '비공개' };
+export const emptyCourse = (): Course => ({ id: crypto.randomUUID(), title: '', summary: '', learningGoal: '', categoryId: '4', level: 'BASIC', status: 'DRAFT', thumbnail: null, updatedAt: '' });
+export const emptyContent = (): Content => ({ id: crypto.randomUUID(), courseId: '', title: '', learningGoal: '', workUse: '', sortOrder: 1, version: 1, status: 'DRAFT', video: null, thumbnail: null, quiz: { question: '', options: ['', '', '', ''], correctIndex: -1, explanation: '' }, optionFeedbacks: Array.from({ length: 4 }, emptyFeedback), practiceText: '', practice: null, resource: null, practiceSettings: emptyPractice(), tagIds: [], skillIds: [], resourceIds: [], subtitles: [], updatedAt: '' });
 export type PublicationField = 'courseId' | 'title' | 'video' | 'question' | 'options' | 'correctIndex' | 'explanation';
 export function publicationProblems(c: Content, courses: Course[]): Partial<Record<PublicationField, string>> {
   const errors: Partial<Record<PublicationField, string>> = {};
@@ -57,6 +84,7 @@ export const filePolicies: Record<MediaKind, { accept: string; limit: number; ex
 };
 export function validateFile(file: File, kind: MediaKind) {
   const policy = filePolicies[kind];
+  if ([...file.name].length > 255) throw new ServiceError('파일명은 255자 이내로 지정해 주세요.');
   if (!policy.extensions.includes(file.name.split('.').pop()?.toLowerCase() ?? '')) throw new ServiceError('지원하지 않는 파일 형식입니다. 안내된 형식을 선택해 주세요.');
   if (!file.size) throw new ServiceError('빈 파일은 업로드할 수 없습니다.');
   if (file.size > policy.limit * 1024 * 1024) throw new ServiceError(`파일은 ${policy.limit}MB 이하로 선택해 주세요.`);

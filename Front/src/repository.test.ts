@@ -48,7 +48,7 @@ describe('예시 저장소', () => {
     const value = { ...emptyContent(), title: '공개 콘텐츠', courseId: course.id, video: media, quiz: { question: '문제', options: ['정답', '오답'], correctIndex: 0, explanation: '해설' } };
     await mockRepository.saveContent(value, true);
     expect((await mockRepository.transition(value.id, 'publish')).status).toBe('PUBLISHED');
-    expect((await mockRepository.transition(value.id, 'unpublish')).status).toBe('PRIVATE');
+    expect((await mockRepository.transition(value.id, 'unpublish')).status).toBe('HIDDEN');
   });
   it('필수 항목이 부족하면 공개를 거절하고 초안은 유지한다', async () => {
     const value = await mockRepository.saveContent(emptyContent(), true);

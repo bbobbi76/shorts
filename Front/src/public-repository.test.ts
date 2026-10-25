@@ -13,6 +13,7 @@ it('사용자에게 공개 콘텐츠만 표시하고 비공개 시 직접 조회
   await expect(mockPublicRepository.content(content.id)).rejects.toMatchObject({ status:404 });
   await expect(mockPublicRepository.mediaBlob(video)).rejects.toMatchObject({ status:404 });
   await mockRepository.transition(content.id,'publish');
+  await mockRepository.saveCourse({ ...course, learningGoal: '공개 범위 확인', status: 'PUBLISHED' }, false);
   sessionStorage.setItem('demo-role','member');
   const publicContent = await mockPublicRepository.content(content.id);
   expect(publicContent).not.toHaveProperty('quiz');
