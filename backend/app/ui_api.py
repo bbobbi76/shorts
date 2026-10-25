@@ -21,6 +21,7 @@ from .models import Category, Content, Course, Practice, Resource, StoredFile, U
 from .routers import contents as native
 from .schemas import QuizIn
 from . import files
+from .ui_contract import ContentOut, CourseOut, ErrorOut, MediaOut, PublicContentOut, SessionOut
 
 
 class UiRecord(Base):
@@ -42,6 +43,11 @@ class CourseBody(BaseModel):
     job: str = Field(default="공통 실무", max_length=50)
     topic: str = Field(default="엑셀", max_length=50)
     level: Literal["기초", "응용"] = "기초"
+
+
+class LoginBody(BaseModel):
+    email: str
+    password: str
 
 
 class MediaRef(BaseModel):
@@ -69,7 +75,12 @@ class ContentBody(BaseModel):
     resource: MediaRef | None = None
 
 
-router = APIRouter(prefix="/api/ui", tags=["React 연동"])
+router = APIRouter(prefix="/api/ui", tags=["React 연동"], responses={
+    code: {"model": ErrorOut, "description": description}
+    for code, description in {400: "입력 형식·파일 검증 오류", 401: "미로그인·세션 만료",
+        403: "권한·CSRF·Origin 거절", 404: "자료 없음", 409: "DB 제약 충돌",
+        422: "저장·공개 조건 위반", 500: "서버 오류"}.items()
+})
 # 서버 재시작 시 만료되는 로컬 개발용 세션. 클라이언트에 사용자 ID를 신뢰하지 않습니다.
 sessions: dict[str, tuple[int, str, float]] = {}
 COOKIE = "workfit_session"
@@ -95,11 +106,11 @@ def admin(request: Request, db: Session = Depends(get_db)) -> int:
     return user.id
 
 
-@router.post("/auth/login")
-def login(body: dict, request: Request, response: Response, db: Session = Depends(get_db)):
+@router.post("/auth/login", response_model=SessionOut)
+def login(body: LoginBody, request: Request, response: Response, db: Session = Depends(get_db)):
     allowed_origin(request)
-    user = db.scalar(select(User).where(User.email == str(body.get("email", "")).strip()))
-    if not user or not check_password(str(body.get("password", "")), user.password_hash):
+    user = db.scalar(select(User).where(User.email == body.email.strip()))
+    if not user or not check_password(body.password, user.password_hash):
         raise ApiError(401, "이메일 또는 비밀번호가 맞지 않습니다.")
     if user.role != "ADMIN" or user.status != "ACTIVE":
         raise ApiError(403, "관리자 계정만 로그인할 수 있습니다.")
@@ -112,7 +123,7 @@ def login(body: dict, request: Request, response: Response, db: Session = Depend
     return {"name": user.name, "role": "admin", "csrfToken": csrf}
 
 
-@router.get("/auth/session")
+@router.get("/auth/session", response_model=SessionOut)
 def session(request: Request, uid: int = Depends(admin), db: Session = Depends(get_db)):
     return {"name": db.get(User, uid).name, "role": "admin",
             "csrfToken": sessions[request.cookies[COOKIE]][1]}
@@ -179,12 +190,12 @@ def get_id(db, model, value):
     return obj
 
 
-@router.get("/admin/courses")
+@router.get("/admin/courses", response_model=list[CourseOut])
 def courses(db: Session = Depends(get_db), _: int = Depends(admin)):
     return [course_out(db, c) for c in db.scalars(select(Course).order_by(Course.id.desc()))]
 
 
-@router.get("/admin/courses/{cid}")
+@router.get("/admin/courses/{cid}", response_model=CourseOut)
 def course(cid: str, db: Session = Depends(get_db), _: int = Depends(admin)):
     return course_out(db, get_id(db, Course, cid))
 
@@ -221,24 +232,24 @@ def save_course(body, db, uid, cid=None, key=None):
     return course_out(db, c)
 
 
-@router.post("/admin/courses", status_code=201)
+@router.post("/admin/courses", status_code=201, response_model=CourseOut)
 def create_course(body: CourseBody, db: Session = Depends(get_db), uid: int = Depends(admin),
                   key: str | None = Header(None, alias="Idempotency-Key", max_length=64)):
     return save_course(body, db, uid, key=key)
 
 
-@router.patch("/admin/courses/{cid}")
+@router.patch("/admin/courses/{cid}", response_model=CourseOut)
 def edit_course(cid: str, body: CourseBody, db: Session = Depends(get_db), uid: int = Depends(admin)):
     return save_course(body, db, uid, cid)
 
 
-@router.get("/admin/contents")
+@router.get("/admin/contents", response_model=list[ContentOut])
 def contents(db: Session = Depends(get_db), _: int = Depends(admin)):
     drafts = list(db.scalars(select(UiRecord).where(UiRecord.kind == "content", UiRecord.native_id.is_(None))))
     return [r.payload for r in drafts] + [content_out(db, c) for c in db.scalars(select(Content).order_by(Content.id.desc()))]
 
 
-@router.get("/admin/contents/{cid}")
+@router.get("/admin/contents/{cid}", response_model=ContentOut)
 def content(cid: str, db: Session = Depends(get_db), _: int = Depends(admin)):
     r = db.scalar(select(UiRecord).where(UiRecord.kind == "content", UiRecord.request_key == cid,
                                         UiRecord.native_id.is_(None)))
@@ -332,18 +343,18 @@ def save_content(body, db, uid, cid=None, key=None):
     return content_out(db, c)
 
 
-@router.post("/admin/contents", status_code=201)
+@router.post("/admin/contents", status_code=201, response_model=ContentOut)
 def create_content(body: ContentBody, db: Session = Depends(get_db), uid: int = Depends(admin),
                    key: str | None = Header(None, alias="Idempotency-Key", max_length=64)):
     return save_content(body, db, uid, key=key)
 
 
-@router.patch("/admin/contents/{cid}")
+@router.patch("/admin/contents/{cid}", response_model=ContentOut)
 def edit_content(cid: str, body: ContentBody, db: Session = Depends(get_db), uid: int = Depends(admin)):
     return save_content(body, db, uid, cid)
 
 
-@router.post("/admin/contents/{cid}/publish")
+@router.post("/admin/contents/{cid}/publish", response_model=ContentOut)
 def publish(cid: str, db: Session = Depends(get_db), uid: int = Depends(admin)):
     if db.scalar(select(UiRecord).where(UiRecord.kind == "content", UiRecord.request_key == cid,
                                         UiRecord.native_id.is_(None))):
@@ -360,14 +371,14 @@ def publish(cid: str, db: Session = Depends(get_db), uid: int = Depends(admin)):
     return content_out(db, c)
 
 
-@router.post("/admin/contents/{cid}/unpublish")
+@router.post("/admin/contents/{cid}/unpublish", response_model=ContentOut)
 def unpublish(cid: str, db: Session = Depends(get_db), uid: int = Depends(admin)):
     c = get_id(db, Content, cid)
     native.hide(c.id, db, uid)
     return content_out(db, c)
 
 
-@router.post("/admin/media", status_code=201)
+@router.post("/admin/media", status_code=201, response_model=MediaOut)
 def upload(file: UploadFile = File(...), kind: str = Form(...), db: Session = Depends(get_db),
            uid: int = Depends(admin)):
     out = files.upload(file, kind.upper(), uid, db)
@@ -401,25 +412,25 @@ def public_contents(db):
                                                             Course.status == "PUBLISHED")))
 
 
-@router.get("/courses")
+@router.get("/courses", response_model=list[CourseOut])
 def public_courses(db: Session = Depends(get_db)):
     ids = {c.course_id for c in public_contents(db)}
     return [course_out(db, c) for c in db.scalars(select(Course).where(Course.id.in_(ids)))]
 
 
-@router.get("/courses/{cid}")
+@router.get("/courses/{cid}", response_model=CourseOut)
 def public_course(cid: str, db: Session = Depends(get_db)):
     if not any(str(c.course_id) == cid for c in public_contents(db)):
         raise ApiError(404, "공개된 과정이 없습니다.")
     return course_out(db, get_id(db, Course, cid))
 
 
-@router.get("/contents")
+@router.get("/contents", response_model=list[PublicContentOut])
 def public_list(courseId: str | None = None, db: Session = Depends(get_db)):
     return [content_out(db, c, True) for c in public_contents(db) if not courseId or str(c.course_id) == courseId]
 
 
-@router.get("/contents/{cid}")
+@router.get("/contents/{cid}", response_model=PublicContentOut)
 def public_detail(cid: str, db: Session = Depends(get_db)):
     c = next((c for c in public_contents(db) if str(c.id) == cid), None)
     if not c:

@@ -189,3 +189,30 @@ def test_real_silent_mp4_upload_gets_server_duration(env):
         r = c.post("/api/ui/admin/media", data={"kind": "video"}, files={"file": ("silent.mp4", f, "video/mp4")}, headers=h)
     assert r.status_code == 201, r.text
     assert 0 < r.json()["duration"] < 60
+
+
+def test_credentialed_cors_and_preflight(env):
+    from app.config import FRONTEND_ORIGIN
+    c, _, _ = env
+    headers = {"Origin": FRONTEND_ORIGIN}
+    response = c.post("/api/ui/auth/login", headers=headers,
+                      json={"email": "admin@test.local", "password": "testpass"})
+    assert response.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
+    assert response.headers["access-control-allow-credentials"] == "true"
+    response = c.options("/api/ui/admin/courses", headers={**headers,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type,x-csrf-token,idempotency-key"})
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert c.options("/api/ui/admin/courses", headers={
+        "Origin": "https://bad.example", "Access-Control-Request-Method": "POST"}).status_code == 400
+
+
+def test_openapi_documents_response_and_error_contract(env):
+    c, _, _ = env
+    schema = c.get("/openapi.json").json()
+    operation = schema["paths"]["/api/ui/admin/contents"]["post"]
+    assert operation["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith("/ContentBody")
+    assert operation["responses"]["201"]["content"]["application/json"]["schema"]["$ref"].endswith("/ContentOut")
+    assert operation["responses"]["400"]["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorOut")
+    assert "quiz" not in schema["components"]["schemas"]["PublicContentOut"]["properties"]
