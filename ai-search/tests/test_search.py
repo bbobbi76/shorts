@@ -11,7 +11,12 @@ from ai_search.config import SEARCH_ROOT
 from ai_search.embedders import EmbeddingError, MockEmbedder
 from ai_search.store import SubtitleStore
 
-SAMPLE = json.loads((SEARCH_ROOT / "data" / "subtitles.json").read_text(encoding="utf-8"))
+# 데모 데이터가 늘어도 검색 로직 테스트가 흔들리지 않게 처음 영상 3개만 쓴다
+SAMPLE = [
+    v
+    for v in json.loads((SEARCH_ROOT / "data" / "subtitles.json").read_text(encoding="utf-8"))
+    if v["video_id"] in {"1", "2", "3"}
+]
 
 
 class FixedRefiner:

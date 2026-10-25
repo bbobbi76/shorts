@@ -48,7 +48,7 @@ describe('예시 저장소', () => {
     const value = { ...emptyContent(), title: '공개 콘텐츠', courseId: course.id, video: media, quiz: { question: '문제', options: ['정답', '오답'], correctIndex: 0, explanation: '해설' } };
     await mockRepository.saveContent(value, true);
     expect((await mockRepository.transition(value.id, 'publish')).status).toBe('PUBLISHED');
-    expect((await mockRepository.transition(value.id, 'unpublish')).status).toBe('PRIVATE');
+    expect((await mockRepository.transition(value.id, 'unpublish')).status).toBe('HIDDEN');
   });
   it('필수 항목이 부족하면 공개를 거절하고 초안은 유지한다', async () => {
     const value = await mockRepository.saveContent(emptyContent(), true);
@@ -78,6 +78,20 @@ describe('예시 저장소', () => {
 });
 
 describe('실제 API 어댑터 계약', () => {
+  it('추가 관리자 기능도 기존 로그인 세션과 CSRF 토큰을 공유한다', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ name: '운영자', role: 'admin', csrfToken: 'shared-csrf' }));
+    const api = createApiRepository('/api/ui', fetcher);
+    await api.login('admin@workfit.dev', 'test-password');
+    await api.readCatalog();
+    await api.saveTag({ id: 'tag-uuid', name: '함수', tagType: 'FUNCTION', synonyms: [] });
+    await api.saveResource({ id: 'resource-uuid', title: '자료', resourceType: 'PROMPT', description: '', file: null, promptText: '질문', categoryId: '', status: 'DRAFT' });
+    expect(fetcher.mock.calls[1][0]).toBe('/api/ui/admin/catalog');
+    for (const [url, init] of fetcher.mock.calls.slice(2)) {
+      expect(url).toMatch(/\/api\/ui\/admin\/(tags|resources)$/);
+      expect(init?.credentials).toBe('include');
+      expect(new Headers(init?.headers).get('X-CSRF-Token')).toBe('shared-csrf');
+    }
+  });
   it('쿠키·CSRF 토큰·생성 중복방지 키를 전달한다', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({ name: '운영자', role: 'admin', csrfToken: 'test-csrf' })).mockResolvedValueOnce(Response.json({ id: 'new-id' }));
     const api = createApiRepository('/api', fetcher);

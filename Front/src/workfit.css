@@ -1,0 +1,23 @@
+.wf-fields { margin:20px 0; }
+.wf-field { display:flex; flex-direction:column; gap:9px; margin:18px 0; font-size:14px; font-weight:600; min-width:0; }
+.wf-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 20px; }
+.wf-checks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:14px 0 26px; }
+.wf-checks label { display:flex; align-items:flex-start; gap:10px; padding:14px; border:1px solid var(--line); border-radius:8px; overflow-wrap:anywhere; }
+.wf-checks input { width:18px; height:18px; flex-shrink:0; margin-top:2px; }
+.wf-checks small { display:block; color:var(--muted); font-size:12px; line-height:1.7; margin-top:5px; }
+.wf-feedback { margin-top:28px; }
+.wf-option-feedback,.wf-subtitle { padding:20px; border:1px solid var(--line); border-radius:10px; margin:16px 0; overflow-wrap:anywhere; }
+.wf-option-feedback>strong { font-size:14px; }
+.wf-catalog-layout { display:grid; grid-template-columns:minmax(240px,1fr) minmax(0,2fr); gap:24px; align-items:start; }
+.wf-catalog-list,.wf-catalog-form { padding:26px; }
+.wf-catalog-list h2,.wf-catalog-form h2 { margin-top:0; }
+.wf-record { display:block; text-align:left; width:100%; padding:16px; margin-top:12px; border:1px solid var(--line); border-radius:8px; background:white; overflow-wrap:anywhere; }
+.wf-record.active { border-color:#3c7255; background:#f2f7f3; }
+.wf-record small { display:block; margin-top:8px; color:var(--muted); }
+.wf-file { display:flex; align-items:center; justify-content:space-between; gap:12px; overflow-wrap:anywhere; }
+.wf-message { padding:14px 20px; background:#eef7ef; border-radius:8px; }
+.badge.hidden { color:#647068; background:#eef1ee; }.badge.review { color:#8a5d17; background:#fff5d8; }
+.editor-steps { flex-wrap:wrap; }
+.wf-course-state { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+@media(max-width:900px) { .wf-catalog-layout { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:600px) { .wf-grid,.wf-checks { grid-template-columns:minmax(0,1fr); }.wf-catalog-list,.wf-catalog-form { padding:20px; }.wf-option-feedback,.wf-subtitle { padding:14px; } }

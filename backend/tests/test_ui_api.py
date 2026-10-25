@@ -58,16 +58,16 @@ def login(client):
 
 
 def course(client, headers):
-    body = {"id": str(uuid.uuid4()), "title": "엑셀 과정", "description": "소개", "objective": "합계를 구한다", "topic": "엑셀", "job": "인사", "level": "기초"}
+    body = {"id": str(uuid.uuid4()), "title": "엑셀 과정", "summary": "소개", "learningGoal": "합계를 구한다", "categoryId": "1", "level": "BASIC"}
     r = client.post("/api/ui/admin/courses", json=body, headers=headers)
     assert r.status_code == 201, r.text
     return r.json(), body
 
 
 def draft(cid):
-    return {"id": str(uuid.uuid4()), "courseId": cid, "title": "SUMIF", "objective": "조건 합계",
+    return {"id": str(uuid.uuid4()), "courseId": cid, "title": "SUMIF", "learningGoal": "조건 합계",
             "quiz": {"question": "함수?", "options": ["SUMIF", "COUNT"], "correctIndex": 0, "explanation": "조건별 합계"},
-            "practiceText": "예제 실습", "status": "PUBLISHED"}
+            "practiceText": "예제 실습", "status": "DRAFT"}
 
 
 def test_auth_csrf_roles_and_logout(env):
@@ -87,7 +87,7 @@ def test_course_roundtrip_and_idempotency(env):
     c, factory, _ = env
     h = login(c)
     saved, body = course(c, h)
-    assert saved["job"] == "인사"
+    assert saved["summary"] == "소개"
     assert c.post("/api/ui/admin/courses", json=body, headers=h).json()["id"] == saved["id"]
     body["title"] = "수정 과정"
     r = c.patch(f'/api/ui/admin/courses/{saved["id"]}', json=body, headers=h)
@@ -122,14 +122,21 @@ def test_draft_publish_privacy_and_rollback(env):
     assert r.status_code == 200, r.text
     assert r.json()["video"]["duration"] == 60
     assert c.post(f"/api/ui/admin/contents/{cid}/publish", headers=h).status_code == 200
+    # 콘텐츠 공개와 과정 공개는 분리합니다.
+    assert c.get(f"/api/ui/contents/{cid}").status_code == 404
+    course_body = {"id": co["id"], "title": co["title"], "summary": co["summary"],
+                   "learningGoal": co["learningGoal"], "categoryId": co["categoryId"],
+                   "level": co["level"], "status": "PUBLISHED"}
+    assert c.patch(f'/api/ui/admin/courses/{co["id"]}', json=course_body, headers=h).status_code == 200
     public = c.get(f"/api/ui/contents/{cid}").json()
     assert "quiz" not in public and "status" not in public
+    body["status"] = "PUBLISHED"
     body["quiz"]["explanation"] = ""
     assert c.patch(f"/api/ui/admin/contents/{cid}", json=body, headers=h).status_code == 422
     assert c.get(f"/api/ui/admin/contents/{cid}").json()["quiz"]["explanation"] == "조건별 합계"
     r = c.get(f"/api/ui/media/{mid}/file", headers={"Range": "bytes=2-5"})
     assert r.status_code == 206 and r.content == b"2345"
-    assert c.post(f"/api/ui/admin/contents/{cid}/unpublish", headers=h).json()["status"] == "PRIVATE"
+    assert c.post(f"/api/ui/admin/contents/{cid}/unpublish", headers=h).json()["status"] == "HIDDEN"
     assert c.get(f"/api/ui/media/{mid}/file").status_code == 404
     assert c.get("/files/test.mp4").status_code == 404
 
@@ -216,3 +223,151 @@ def test_openapi_documents_response_and_error_contract(env):
     assert operation["responses"]["201"]["content"]["application/json"]["schema"]["$ref"].endswith("/ContentOut")
     assert operation["responses"]["400"]["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorOut")
     assert "quiz" not in schema["components"]["schemas"]["PublicContentOut"]["properties"]
+
+
+def test_latest_front_fields_roundtrip_and_removal(env):
+    from app.models import Skill, Subtitle, Quiz, Practice
+    c, factory, _ = env
+    h = login(c)
+    co, cb = course(c, h)
+    cb["level"] = "INTRO"
+    assert c.patch(f'/api/ui/admin/courses/{co["id"]}', json=cb, headers=h).json()["level"] == "INTRO"
+    with factory() as db:
+        db.add(Skill(id=1, category_id=1, name="함수", description="조건 함수"))
+        db.commit()
+    tag = c.post("/api/ui/admin/tags", headers=h, json={"id": "tag-uuid", "name": "조건합계", "tagType": "FUNCTION", "synonyms": ["SUMIF"]}).json()
+    resource = c.post("/api/ui/admin/resources", headers=h, json={"id": "resource-uuid", "title": "프롬프트", "resourceType": "PROMPT", "promptText": "합계를 설명해 주세요", "status": "PUBLISHED"}).json()
+    body = draft(co["id"])
+    body.update(status="REVIEW", workUse="매출 집계", sortOrder=3,
+        tagIds=[tag["id"]], skillIds=["1"], resourceIds=[resource["id"]],
+        practiceSettings={"title": "합계 실습", "expectedResult": "120", "resultType": "NUMBER", "tolerance": 0.01, "requiredFunction": "SUMIF", "answerFormula": "=SUMIF(A:A,1,B:B)"},
+        optionFeedbacks=[{"feedback": "조건 합계입니다", "feedbackSource": "ADMIN", "rewatchSec": 4}, {"feedback": "개수 함수입니다", "feedbackSource": "ADMIN", "rewatchSec": None}],
+        subtitles=[{"id": "subtitle-uuid", "startSec": 0, "endSec": 3.25, "text": "조건 합계를 구합니다"}])
+    r = c.post("/api/ui/admin/contents", json=body, headers=h)
+    assert r.status_code == 201, r.text
+    cid = r.json()["id"]
+    saved = c.get(f"/api/ui/admin/contents/{cid}").json()
+    for key in ["status", "learningGoal", "workUse", "sortOrder", "tagIds", "skillIds", "resourceIds", "practiceSettings", "optionFeedbacks"]:
+        assert saved[key] == body[key], key
+    assert saved["subtitles"][0]["text"] == body["subtitles"][0]["text"]
+    with factory() as db:
+        assert db.get(Content, int(cid)).status == "REVIEW"
+        assert db.scalar(select(Practice)).expected_result == "120"
+        assert db.scalar(select(Subtitle)).caption_text == "조건 합계를 구합니다"
+        assert db.scalar(select(Quiz)).options[0].rewatch_sec == 4
+    assert c.get(f"/api/ui/contents/{cid}").status_code == 404
+    body.update(tagIds=[], skillIds=[], resourceIds=[], subtitles=[], optionFeedbacks=[{"feedback": "", "rewatchSec": None}] * 2,
+                practiceText="", practiceSettings={})
+    r = c.patch(f"/api/ui/admin/contents/{cid}", json=body, headers=h)
+    assert r.status_code == 200, r.text
+    for key in ["tagIds", "skillIds", "resourceIds", "subtitles"]:
+        assert r.json()[key] == []
+    assert r.json()["practiceSettings"]["expectedResult"] == ""
+    assert r.json()["optionFeedbacks"][0]["feedbackSource"] == "NONE"
+
+
+def test_catalog_uses_existing_cookie_csrf_and_supports_updates(env):
+    c, _, _ = env
+    tag = {"id": "tag-a", "name": "함수", "tagType": "FUNCTION", "synonyms": ["함수검색"]}
+    assert c.get("/api/ui/admin/catalog").status_code == 401
+    assert c.post("/api/ui/admin/tags", json=tag).status_code == 401
+    h = login(c)
+    assert c.post("/api/ui/admin/tags", json=tag).status_code == 403
+    saved = c.post("/api/ui/admin/tags", json=tag, headers=h).json()
+    assert c.post("/api/ui/admin/tags", json=tag, headers=h).json()["id"] == saved["id"]
+    saved["synonyms"] = ["수식검색"]
+    assert c.post("/api/ui/admin/tags", json=saved, headers=h).json()["synonyms"] == ["수식검색"]
+    assert c.post("/api/ui/admin/tags", json={**tag, "id": "another"}, headers=h).status_code == 409
+    resource = {"id": "resource-a", "title": "자료", "resourceType": "PROMPT", "promptText": "질문", "status": "DRAFT"}
+    assert c.post("/api/ui/admin/resources", json=resource).status_code == 403
+    r = c.post("/api/ui/admin/resources", json=resource, headers=h)
+    assert r.status_code == 200, r.text
+    resource.update(id=r.json()["id"], title="수정 자료", status="HIDDEN")
+    assert c.post("/api/ui/admin/resources", json=resource, headers=h).json()["title"] == "수정 자료"
+    catalog = c.get("/api/ui/admin/catalog").json()
+    assert len(catalog["tags"]) == 1 and len(catalog["resources"]) == 1
+    c.post("/api/ui/auth/logout", headers=h)
+    assert c.get("/api/ui/admin/catalog").status_code == 401
+
+
+def test_invalid_connections_and_subtitles_do_not_change_saved_data(env):
+    c, _, _ = env
+    h = login(c)
+    co, _ = course(c, h)
+    body = draft(co["id"])
+    cid = c.post("/api/ui/admin/contents", json=body, headers=h).json()["id"]
+    body.update(title="바뀌면 안 됨", tagIds=["999"])
+    assert c.patch(f"/api/ui/admin/contents/{cid}", json=body, headers=h).status_code == 404
+    body.update(tagIds=[], subtitles=[{"id": "s", "startSec": 5, "endSec": 2, "text": "역전"}])
+    assert c.patch(f"/api/ui/admin/contents/{cid}", json=body, headers=h).status_code == 422
+    assert c.get(f"/api/ui/admin/contents/{cid}").json()["title"] == "SUMIF"
+
+
+def test_unassigned_review_draft_keeps_new_fields_when_attached(env):
+    c, _, _ = env
+    h = login(c)
+    body = draft("")
+    body.update(status="REVIEW", workUse="검수 업무", subtitles=[{"id": "s", "startSec": 0, "endSec": 1, "text": "안내"}])
+    r = c.post("/api/ui/admin/contents", json=body, headers=h)
+    assert r.status_code == 201, r.text
+    cid = r.json()["id"]
+    assert c.get(f"/api/ui/admin/contents/{cid}").json()["status"] == "REVIEW"
+    co, _ = course(c, h)
+    body["courseId"] = co["id"]
+    r = c.patch(f"/api/ui/admin/contents/{cid}", json=body, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "REVIEW" and r.json()["workUse"] == "검수 업무"
+    assert r.json()["subtitles"][0]["text"] == "안내"
+
+
+def test_public_resources_and_private_answers_are_filtered(env):
+    from pathlib import Path
+    c, _, _ = env
+    h = login(c)
+    co, cb = course(c, h)
+    sample = Path(__file__).resolve().parents[2] / "Front/public/demo-sample.mp4"
+    with sample.open("rb") as f:
+        uploaded = c.post("/api/ui/admin/media", data={"kind": "video"}, files={"file": ("sample.mp4", f, "video/mp4")}, headers=h)
+    assert uploaded.status_code == 201
+    resources = []
+    files = []
+    for status in ("PUBLISHED", "HIDDEN"):
+        asset = c.post("/api/ui/admin/media", data={"kind": "resource"}, files={"file": ("data.txt", b"resource", "text/plain")}, headers=h).json()
+        files.append(asset)
+        saved = c.post("/api/ui/admin/resources", json={"id": str(uuid.uuid4()), "title": status, "resourceType": "TEMPLATE", "file": asset, "status": status}, headers=h)
+        assert saved.status_code == 200, saved.text
+        resources.append(saved.json())
+    body = draft(co["id"])
+    body.update(video=uploaded.json(), resourceIds=[r["id"] for r in resources],
+        practiceSettings={"expectedResult": "secret-answer", "resultType": "TEXT", "answerFormula": "secret-formula"},
+        subtitles=[{"id": "s", "startSec": 0, "endSec": 1, "text": "공개 자막"}])
+    saved = c.post("/api/ui/admin/contents", json=body, headers=h)
+    assert saved.status_code == 201, saved.text
+    cid = saved.json()["id"]
+    assert c.post(f"/api/ui/admin/contents/{cid}/publish", headers=h).status_code == 200
+    cb["status"] = "PUBLISHED"
+    assert c.patch(f'/api/ui/admin/courses/{co["id"]}', json=cb, headers=h).status_code == 200
+    public = c.get(f"/api/ui/contents/{cid}")
+    assert public.status_code == 200
+    assert "secret-answer" not in public.text and "secret-formula" not in public.text
+    assert not {"quiz", "optionFeedbacks", "practiceSettings"} & public.json().keys()
+    assert [r["id"] for r in public.json()["resources"]] == [resources[0]["id"]]
+    assert public.json()["subtitles"][0]["text"] == "공개 자막"
+    assert c.get(f'/api/ui/media/{files[0]["id"]}/file').status_code == 200
+    assert c.get(f'/api/ui/media/{files[1]["id"]}/file').status_code == 404
+    body["subtitles"][0]["endSec"] = uploaded.json()["duration"] + 1
+    assert c.patch(f"/api/ui/admin/contents/{cid}", json=body, headers=h).status_code == 422
+
+
+def test_legacy_unassigned_draft_can_still_be_opened(env):
+    c, factory, _ = env
+    login(c)
+    with factory() as db:
+        db.add(UiRecord(kind="content", owner_id=1, request_key="legacy", native_id=None,
+            payload={"id": "legacy", "courseId": "", "title": "예전 초안", "objective": "목표", "status": "DRAFT",
+                     "quiz": {"question": "", "options": ["", ""], "correctIndex": -1, "explanation": ""}, "updatedAt": ""}))
+        db.commit()
+    r = c.get("/api/ui/admin/contents/legacy")
+    assert r.status_code == 200, r.text
+    assert r.json()["learningGoal"] == "목표" and len(r.json()["optionFeedbacks"]) == 2
+    assert c.get("/api/ui/admin/contents").status_code == 200
