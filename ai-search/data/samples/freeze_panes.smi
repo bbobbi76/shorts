@@ -1,0 +1,30 @@
+<SAMI>
+<HEAD>
+<TITLE>틀 고정</TITLE>
+<STYLE TYPE="text/css">
+<!--
+P { font-family: 굴림; }
+.KRCC { Name: Korean; lang: ko-KR; }
+.ENCC { Name: English; lang: en-US; }
+-->
+</STYLE>
+</HEAD>
+<BODY>
+<SYNC Start=0><P Class=KRCC>아래로 스크롤하면 맨 위 제목 줄이 사라져서 어느 열이 무엇인지 헷갈리죠.
+<SYNC Start=0><P Class=ENCC>When you scroll down, the header row disappears.
+<SYNC Start=8000><P Class=KRCC>보기 탭의 틀 고정에서 첫 행 고정을 누르면 제목 줄이 계속 <br>보입니다.
+<SYNC Start=8000><P Class=ENCC>Use Freeze Top Row on the View tab.
+<SYNC Start=16000><P Class=KRCC>이름이 있는 첫 열도 같이 고정하고 싶다면 고정할 위치 바로 오른쪽 아래 셀을 선택하세요.
+<SYNC Start=16000><P Class=ENCC>Select the cell below and right of where to freeze.
+<SYNC Start=25000><P Class=KRCC>&nbsp;
+<SYNC Start=25000><P Class=ENCC>&nbsp;
+<SYNC Start=27000><P Class=KRCC>그다음 틀 고정을 누르면 선택한 셀의 위쪽 행과 왼쪽 열이 함께 고정돼요.
+<SYNC Start=27000><P Class=ENCC>Then choose Freeze Panes.
+<SYNC Start=35000><P Class=KRCC>인쇄할 때 모든 페이지에 제목 줄을 넣으려면 페이지 레이아웃의 인쇄 제목을 쓰세요.
+<SYNC Start=35000><P Class=ENCC>For printing, use Print Titles.
+<SYNC Start=44000><P Class=KRCC>고정을 풀 때는 같은 메뉴에서 틀 고정 취소를 누르면 됩니다.
+<SYNC Start=44000><P Class=ENCC>To undo, choose Unfreeze Panes.
+<SYNC Start=52000><P Class=KRCC>&nbsp;
+<SYNC Start=52000><P Class=ENCC>&nbsp;
+</BODY>
+</SAMI>
