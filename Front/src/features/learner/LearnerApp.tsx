@@ -1,11 +1,11 @@
-import { categoryName, categories, levelLabels } from './model';
+import { categoryName, categories, levelLabels } from '../../domain/model';
 import { useEffect, useState } from 'react';
 import LearningPreview from './LearningPreview';
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, Clapperboard, Layers3, Search } from 'lucide-react';
-import { dataMode, publicRepository } from './repository';
-import type { Media } from './model';
-import type { PublicContent, PublicCourse } from './public-model';
+import { dataMode, publicRepository } from '../../data/repository';
+import type { Media } from '../../domain/model';
+import type { PublicContent, PublicCourse } from '../../domain/public-model';
 
 export function RoleHome() {
   return <div className="role-home"><header className="learner-header"><Brand/><span className="badge published">{dataMode === 'mock' ? '예시 데이터 모드' : '서버 연결 모드'}</span></header><main className="role-main"><h1>이용할 화면을 선택하세요</h1><p className="page-description">사용자는 공개된 콘텐츠를 학습하고, 관리자는 과정과 콘텐츠를 운영합니다.</p><div className="role-options"><section className="panel role-option"><BookOpen size={28}/><h2>사용자</h2><p>업무 질문으로 영상을 찾고<br/>과제와 AI 피드백 화면을 살펴봅니다.</p><Link className="button primary" to="/learn" onClick={() => { if (dataMode === 'mock') sessionStorage.setItem('demo-role', 'member'); }}>사용자로 입장<ArrowRight size={17}/></Link></section><section className="panel role-option"><Clapperboard size={28}/><h2>관리자</h2><p>과정과 영상을 등록·수정하고<br/>콘텐츠 공개 상태를 관리합니다.</p><Link className="button" to="/admin/contents" onClick={() => { if (dataMode === 'mock') sessionStorage.setItem('demo-role', 'signed-out'); }}>관리자로 입장<ArrowRight size={17}/></Link></section></div><p className="help">{dataMode === 'mock' ? '예시 모드의 역할 선택은 화면 확인용입니다. 실제 회원가입·계정 인증은 서버 연결이 필요합니다.' : '관리자 화면은 서버에서 확인한 관리자 계정으로만 이용할 수 있습니다.'}</p></main></div>;
@@ -47,5 +47,3 @@ function LessonView() {
   if (!value) return <div className="loading" role="status">영상 불러오는 중…</div>;
   return <>{value.isExample && <span className="badge private">화면 예시</span>}<Link className="back-link" to={`/learn/courses/${value.courseId}`}><ArrowLeft size={16}/>과정으로 돌아가기</Link><h1>{value.title}</h1><p className="page-description">{value.learningGoal}</p>{value.video && <Asset media={value.video} video/>}{value.practiceText && <section className="learner-objective"><h2>선택 실습</h2><p className="pre-wrap">{value.practiceText}</p></section>}{value.workUse && <section className="learner-objective"><h2>활용 업무</h2><p>{value.workUse}</p></section>}{value.subtitles?.length ? <section className="learner-objective"><h2>영상 자막</h2>{value.subtitles.map(s => <p key={s.id}>{s.startSec}~{s.endSec}초 · {s.text}</p>)}</section> : null}{value.resources?.map(r => <section className="learner-resources" key={r.id}><h2>{r.title}</h2><p>{r.description}</p>{r.file && <Asset media={r.file}/ >}{r.resourceType === 'PROMPT' && <p className="pre-wrap">{r.promptText}</p>}</section>)}{(value.practice || value.resource) && <section className="learner-resources"><h2>실습·업무자료</h2>{value.practice && <Asset media={value.practice}/>} {value.resource && <Asset media={value.resource}/>}</section>}</>;
 }
-
-

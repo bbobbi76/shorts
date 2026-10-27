@@ -1,95 +1,113 @@
-> 최신 연동 계약과 실행 안내는 [백엔드 API 명세](../../backend/docs/ENDPOINTS.md), [연동 안내](../../backend/docs/INTEGRATION_GUIDE.md)를 참고하세요. 아래는 과거 제안 문서입니다.
+# 프론트엔드 API 연결 계약
 
-> 과거 API 제안 문서입니다. 2026-10-25 버전은 프론트 전용이며 API를 연결하지 않습니다. 현재 기준은 WORKFIT_DB_ALIGNMENT.md를 참고하세요.
+기준: 2026-10-27, `backend/app/ui_api.py`와 `ui_contract.py`, `Front/src/data/api/` 코드 확인.
+현재 서버 실행·계정·DB 준비는 [백엔드 연동 안내](../../backend/docs/INTEGRATION_GUIDE.md), 전체 서버 명세는 [ENDPOINTS.md](../../backend/docs/ENDPOINTS.md)를 참고합니다. 아래는 프론트가 사용하는 요청의 요약입니다. 프론트 기능별 검증 범위는 [프론트 작업 요약](WEEK5_FRONTEND_WORK.md)에 정리했습니다.
 
-# 관리자 화면용 API 연결 계약 제안
+## 모드와 공통 규칙
 
-이 문서는 프론트가 현재 요청하는 형식입니다. 실제 서버 구현·DB 명세서가 아닙니다. 팀 백엔드 담당자와 합의 후 경로·필드·권한·제약을 확정합니다. 기본 주소는 `/api`입니다.
+- 설정이 없으면 목업 모드이며 IndexedDB에 저장합니다. `.env.local`의 `VITE_DATA_MODE=api`로 실제 HTTP 어댑터를 선택합니다. 설정 변경 후 개발 서버를 재시작합니다.
+- 기본 주소는 `/api/ui`이며 `VITE_API_BASE_URL`로 변경합니다. 로컬 Vite의 `/api` 프록시는 `http://127.0.0.1:8000`을 향합니다.
+- 성공 응답은 `{data: ...}` 봉투 없이 객체 또는 배열입니다. ID는 문자열, 시간은 ISO 8601 형식입니다.
+- 모든 요청은 `credentials: include`를 사용합니다. 로그인·세션 응답의 `csrfToken`을 이후 변경 요청의 `X-CSRF-Token`에 전달합니다. 파일 업로드도 같은 세션·토큰을 사용합니다.
+- JSON 요청은 20초, 업로드·파일 조회는 120초에 중단합니다. 요청 중단이 서버 저장 취소를 뜻하지는 않습니다. 자동 재전송이나 목업 자동 전환은 하지 않습니다.
+- 생성 요청은 화면의 UUID를 `Idempotency-Key`로 보냅니다. 응답 ID는 서버가 발급한 값으로 교체합니다. 과정 없이 저장한 초안을 과정에 연결할 때도 ID가 UUID에서 숫자 문자열로 바뀔 수 있으며, 저장 응답에 맞춰 편집 경로를 갱신합니다. 태그·자료 저장은 body.id를 신규 등록·수정 식별값으로 사용합니다.
 
-## 공통
+## 관리자 엔드포인트
 
-- 쿠키 기반 세션, 모든 관리자 API에서 서버 권한 검사. 미로그인 401, 권한 없음 403, 자료 없음 404, 상태 충돌 409, 입력 오류 422.
-- 성공 응답은 `{data: ...}` 봉투 없이 **직접 객체 또는 배열**입니다. 날짜는 ISO 8601, ID는 문자열입니다.
-- 오류는 `{ "message": "공개에 필요한 항목을 확인해 주세요.", "fields": ["영상이 필요합니다."] }`. fields는 선택적인 문자열 배열입니다.
-- `POST /admin/courses`, `POST /admin/contents`는 요청의 UUID를 `Idempotency-Key` 헤더로 보냅니다. 서버는 같은 계정·같은 키의 재전송을 중복 생성하지 않고 최초 ID를 반환해야 합니다. 응답의 ID는 서버가 발급해도 됩니다.
-- 프론트의 updatedAt은 신뢰하지 않고 서버 저장 시각을 응답합니다. 수정 시 원자적 저장을 보장해야 합니다. 다중 관리자 동시 편집 충돌 해결은 이번 프론트에 포함하지 않았습니다.
-- 일반 JSON 요청은 20초, 파일 업로드·파일 조회는 120초에 중단합니다. 중단이 서버 저장 취소를 뜻하지는 않습니다. 자동 재전송하지 않습니다.
-
-## 엔드포인트
+모든 경로 앞에 기본 주소 `/api/ui`를 붙입니다.
 
 | 방식 | 경로 | 요청 | 성공 응답 |
-|---|---|---|---|
-| GET | `/auth/session` | 쿠키 | Session + csrfToken |
-| POST | `/auth/login` | `{email,password}` | Session + csrfToken |
-| POST | `/auth/logout` | 쿠키 + CSRF | 204 |
+| --- | --- | --- | --- |
+| GET | `/auth/session` | 세션 쿠키 | Session + csrfToken |
+| POST | `/auth/login` | `{email, password}` | Session + csrfToken |
+| POST | `/auth/logout` | 세션·CSRF | 204 |
 | GET | `/admin/courses` | 없음 | Course[] |
 | GET | `/admin/courses/{id}` | 없음 | Course |
-| POST | `/admin/courses` | Course | 저장된 Course |
-| PATCH | `/admin/courses/{id}` | Course 전체 편집 필드 | 저장된 Course |
+| POST | `/admin/courses` | Course 편집 필드, 중복방지 키 | Course |
+| PATCH | `/admin/courses/{id}` | Course 전체 편집 필드 | Course |
 | GET | `/admin/contents` | 없음 | Content[] |
 | GET | `/admin/contents/{id}` | 없음 | Content |
-| POST | `/admin/contents` | Content | 저장된 Content |
-| PATCH | `/admin/contents/{id}` | Content 전체 편집 필드 | 저장된 Content |
-| POST | `/admin/contents/{id}/publish` | 없음 | PUBLISHED 상태의 Content |
-| POST | `/admin/contents/{id}/unpublish` | 없음 | PRIVATE 상태의 Content |
+| POST | `/admin/contents` | Content 편집 필드, 중복방지 키 | Content |
+| PATCH | `/admin/contents/{id}` | Content 전체 편집 필드 | Content |
+| POST | `/admin/contents/{id}/publish` | 없음 | PUBLISHED 상태 Content |
+| POST | `/admin/contents/{id}/unpublish` | 없음 | HIDDEN 상태 Content |
 | POST | `/admin/media` | FormData: file, kind | Media |
-| GET | `/admin/media/{id}/file` | 쿠키 | 바이너리 파일 |
+| GET | `/admin/media/{id}/file` | 세션 쿠키 | 파일 바이너리 |
+| GET | `/admin/catalog` | 없음 | `{tags: SearchTag[], resources: WorkResource[]}` |
+| POST | `/admin/tags` | SearchTag 전체 편집 필드 | SearchTag |
+| POST | `/admin/resources` | WorkResource 전체 편집 필드 | WorkResource |
 
-목록 검색·필터는 초기 규모에서 프론트가 전체 배열에 적용합니다. 목록 API의 페이지네이션은 아직 사용하지 않습니다.
+목록 검색·필터는 받은 전체 배열에 적용하며 페이지네이션은 사용하지 않습니다. 데이터 타입의 원본은 [model.ts](../src/domain/model.ts), 공개 응답은 [public-model.ts](../src/domain/public-model.ts)입니다.
 
-## 타입
+## 주요 필드와 저장 흐름
 
-정확한 프론트 타입은 `src/model.ts`를 참고합니다.
+| 항목 | 주요 필드·제약 |
+| --- | --- |
+| Session | name, role: admin/member, csrfToken |
+| Course | id, title(100자), summary·learningGoal(500자), categoryId, level: INTRO/BASIC/ADVANCED, status: DRAFT/PUBLISHED/HIDDEN, thumbnail |
+| Content 기본 | id, courseId, title(100자), learningGoal(500자), workUse(255자), sortOrder(0 이상 정수), status: DRAFT/REVIEW/PUBLISHED/HIDDEN |
+| 영상·이미지 | video, thumbnail: Media 또는 null. Media는 id, name, size, type, kind 및 선택 duration·width·height |
+| 퀴즈 | quiz.question(500자), options(2~4개·보기당 255자), correctIndex(0부터, 미선택 -1), explanation |
+| 보기별 피드백 | optionFeedbacks: feedback, feedbackSource(NONE/AI_DRAFT/ADMIN), rewatchSec(선택·0 이상 정수·영상 길이 이내) |
+| 실습 | practiceText, practice(파일), practiceSettings: title, expectedResult, resultType(NUMBER/TEXT), tolerance, requiredFunction, answerFormula |
+| 연결 | tagIds, skillIds, resourceIds: 문자열 ID 배열 |
+| 자막 | subtitles: id, startSec, endSec, text. 시작보다 종료가 커야 하며 영상 길이 이내, 시점은 소수점 2자리 |
+| 태그 | id, name(50자), tagType(SITUATION/ERROR/FUNCTION/TOOL), synonyms |
+| 자료 | id, title(100자), resourceType(TEMPLATE/EXAMPLE_DOC/PROMPT), description(500자), file, promptText, categoryId, status(DRAFT/PUBLISHED/HIDDEN) |
 
-```ts
-type Session = { name: string; role: 'admin' | 'member'; csrfToken?: string };
-type Course = {
-  id: string; title: string; description: string; objective: string;
-  job: string; topic: string; level: '기초' | '응용'; updatedAt: string;
-};
-type Media = {
-  id: string; name: string; size: number; type: string;
-  kind: 'video' | 'thumbnail' | 'practice' | 'resource';
-  duration?: number; width?: number; height?: number;
-};
-type Content = {
-  id: string; courseId: string; title: string; objective: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'PRIVATE';
-  video: Media | null; thumbnail: Media | null;
-  quiz: { question: string; options: string[]; correctIndex: number; explanation: string };
-  practiceText: string; practice: Media | null; resource: Media | null;
-  updatedAt: string;
-};
+콘텐츠는 빈 제목·과정·퀴즈 상태에서도 초안으로 저장할 수 있습니다. 공개에는 소속 과정, 제목, 재생 가능한 영상, 퀴즈 문제·보기·정답·해설이 필요합니다. 일반 저장 후 전용 publish 요청을 보냅니다. 저장만 성공하고 공개 요청이 실패하면 반환받은 ID의 편집 화면으로 이동해 오류를 표시하며, 재시도는 수정 요청을 사용합니다.
+
+콘텐츠 공개와 과정 공개는 별개입니다. 사용자에게 표시하려면 둘 다 공개되어야 합니다. 과정 공개에는 학습 목표와 공개된 콘텐츠 1개 이상이 필요합니다.
+
+파일은 먼저 업로드한 뒤 반환받은 Media를 연결해 콘텐츠·자료를 저장합니다. 프론트의 재생 가능 여부 검사와 별개로 서버가 파일·소유권·종류를 검사합니다. 서버가 반환한 메타데이터가 브라우저 측정값보다 우선합니다. 보호된 파일은 인증 요청으로 Blob을 받은 뒤 임시 URL로 미리 보고, 화면을 떠나면 URL을 해제합니다.
+
+분야·스킬 목록은 현재 `domain/model.ts`의 고정 목록을 사용합니다. 현재 seed로 만든 QA DB와 일치하는 것을 확인했습니다. 다른 DB에서는 ID·목록 확인이 필요합니다. 기존 `/api/admin/categories`, `/api/admin/skills`는 별도 Bearer 인증을 사용하므로 현재 UI 쿠키 세션으로 직접 호출할 수 없습니다. AI 퀴즈 스튜디오는 기존 화면 예시이며 이 어댑터로 실제 AI 생성·검색·채점 요청을 보내지 않습니다.
+
+## 요청 예시
+
+```http
+POST /api/ui/admin/courses
+Content-Type: application/json
+X-CSRF-Token: <로그인 응답에서 받은 토큰>
+Idempotency-Key: <새 과정 UUID>
 ```
 
-correctIndex는 0부터 시작하며 미선택 초안은 -1입니다. 초안에는 빈 courseId·title과 빈 퀴즈가 올 수 있습니다. 공개 시 모두 검증해야 합니다.
+```json
+{
+  "id": "<새 과정 UUID>",
+  "title": "신입 직장인을 위한 엑셀 기초",
+  "summary": "업무에 자주 쓰는 함수를 배웁니다.",
+  "learningGoal": "조건별 합계를 계산할 수 있다.",
+  "categoryId": "4",
+  "level": "INTRO",
+  "status": "DRAFT",
+  "thumbnail": null
+}
+```
 
-## 파일·권한·상태
+서버가 반환한 Course의 `id`, `updatedAt`을 편집 상태에 반영합니다. 이후 수정은 반환받은 ID로 PATCH합니다. 실제 계정·비밀번호는 이 문서에 기재하지 않습니다.
 
-- 업로드 형식과 크기를 서버가 검사하고 저장소의 실제 미디어 ID·메타데이터를 반환합니다. 브라우저는 재생 가능 여부를 확인하지만 이를 서버 검증으로 대신할 수 없습니다.
-- 콘텐츠 JSON의 Media는 편집 화면용 스냅샷입니다. 서버는 Media.id로 소유권·종류·실제 존재 여부를 조회해야 하며 클라이언트가 전송한 파일명·크기·재생시간만 신뢰하면 안 됩니다.
-- 초안·비공개 파일은 관리자 인증이 필요한 경로로만 제공합니다. 프론트는 보호된 파일을 fetch하여 Blob URL로 미리 봅니다. 비인증 정적 URL을 사용하지 않습니다.
-- 공개 상태는 전용 publish/unpublish API가 결정합니다. 일반 PATCH의 status만으로 관리자 검증을 우회하면 안 됩니다.
-- 공개 콘텐츠 수정 시 영상·퀴즈 변경이 기존 학습 기록에 주는 영향은 백엔드 정책 확정이 필요합니다. 이 프론트는 기록 삭제나 버전 자동 이관을 구현하지 않습니다.
-- 로그인 세션 쿠키는 서버에서 HttpOnly·SameSite를 설정하고, HTTPS 환경에서는 Secure를 적용합니다. CSRF 토큰은 세션·로그인 응답에서 발급하고 변경 요청의 X-CSRF-Token을 검증합니다. 로그인 자체의 출처·CSRF 방어도 서버에서 결정합니다.
-- 다른 출처의 API를 사용하면 허용 출처와 credentials를 서버 CORS에 명시합니다. 로컬 개발은 동일 출처 Vite proxy 사용을 권장합니다.
+## 오류 처리
 
-## 백엔드 연결 후 함께 확인할 항목
+오류 응답은 `{ "message": "입력값을 확인해 주세요.", "fields": ["title: 필수 항목"] }` 형식이며 서버는 같은 내용의 `details`도 반환합니다. 프론트는 message와 fields를 오류 요약으로 표시합니다.
 
-실제 계정 로그인/로그아웃, 비관리자 403, 만료 401, 파일 업로드·재조회, 초안 저장·수정, 새로고침 복원, 공개 누락 422, 공개·비공개, 중복 생성 방지, CSRF 거절, 초안 파일의 비인증 접근 차단.
+| 상태 | 프론트 처리 |
+| --- | --- |
+| 400·422 | 입력·저장·공개 조건 오류 표시, 입력 유지 |
+| 401 | 로그인 창 표시, 작성 중인 입력 유지 |
+| 403 | 관리자 권한 안내. 다른 계정 로그인으로 복귀해 입력 유지 |
+| 404 | 없는 항목 안내 |
+| 409 | 중복·DB 제약 오류 표시 |
+| 5xx·연결 실패·시간 초과 | 오류 표시, 가능한 조회는 재시도 제공, 목업 자동 전환 없음 |
 
-## 사용자 조회 API 추가 제안
-
-관리자 API는 유지하고 사용자용 조회 어댑터를 별도로 추가했습니다. 아래 API는 프론트 연결 계약 제안이며 실제 팀 서버 제공 여부는 미검증입니다.
+## 사용자 조회
 
 | 방식 | 경로 | 응답 |
-|---|---|---|
-| GET | `/courses` | 공개 영상이 있는 Course[] |
-| GET | `/courses/{id}` | 공개 영상이 있는 Course |
-| GET | `/contents?courseId={id}` | 공개 PublicContent[] |
-| GET | `/contents/{id}` | 공개 PublicContent |
-| GET | `/media/{id}/file` | 공개 콘텐츠에 연결된 파일 바이너리 |
+| --- | --- | --- |
+| GET | `/courses` | 공개 콘텐츠가 있는 공개 Course[] |
+| GET | `/courses/{id}` | 공개 Course |
+| GET | `/contents?courseId={id}` | PublicContent[] |
+| GET | `/contents/{id}` | PublicContent |
+| GET | `/media/{id}/file` | 공개 콘텐츠에 연결된 파일 |
 
-PublicContent는 Content에서 id·courseId·title·objective·video·thumbnail·practiceText·practice·resource·updatedAt만 포함합니다. 관리자 상태·퀴즈 정답·해설은 노출하지 않습니다. 서버는 클라이언트 필터에 의존하지 않고 공개 여부와 부모 과정·파일 연결을 검사해야 합니다. 비공개/초안의 직접 요청에는 404를 반환하며 사용자 역할로 관리자 API를 호출하면 403을 반환해야 합니다.
-
-예시 모드도 동일한 공개 범위를 조회 단계에서 검사합니다. 이미 다운로드한 파일까지 회수하거나 열린 화면을 실시간으로 갱신하는 기능은 없습니다. 다시 조회할 때 변경된 공개 상태가 적용됩니다.
+PublicContent에는 관리자 퀴즈 정답·해설, optionFeedbacks, practiceSettings가 포함되지 않습니다. 자료는 연결된 공개 자료만 반환합니다. 서버가 공개 여부·부모 과정·파일 연결을 검사하며 프론트 필터만으로 접근을 제한하지 않습니다.

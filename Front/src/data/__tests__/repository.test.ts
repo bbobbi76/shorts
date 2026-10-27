@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { emptyContent, emptyCourse, publishIssues, ServiceError, validateFile } from './model';
-import { createApiRepository, mockRepository } from './repository';
+import { emptyContent, emptyCourse, publishIssues, ServiceError, validateFile } from '../../domain/model';
+import { createApiRepository, mockRepository } from '../repository';
 
 const storage = new Map<string, string>();
 vi.stubGlobal('sessionStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) });

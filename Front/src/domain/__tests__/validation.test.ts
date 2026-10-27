@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { emptyContent, emptyCourse, type Course, type Content } from './model';
-import { contentRows, initialCatalog, migrateState, validateContent, validateCourse, type LocalState } from './workfit-model';
-import { catalogRepository, mockRepository, mockPublicRepository, repository, dataMode } from './repository';
+import { emptyContent, emptyCourse, type Course, type Content } from '../../domain/model';
+import { contentRows, initialCatalog, migrateState, validateContent, validateCourse, type LocalState } from '../validation';
+import { mockCatalogRepository as catalogRepository, mockRepository, mockPublicRepository } from '../../data/repository';
 
 const session = new Map<string, string>();
 vi.stubGlobal('sessionStorage', { getItem: (key: string) => session.get(key) ?? null, setItem: (key: string, value: string) => session.set(key, value), removeItem: (key: string) => session.delete(key) });
@@ -41,7 +41,6 @@ describe('WorkFit DB 필드와 기존 데이터 보존', () => {
 });
 
 describe('프론트 안에서 저장·공개 처리', () => {
-  it('실행 저장소가 항상 로컬이어서 서버 모드로 전환하지 않는다', () => { expect(dataMode).toBe('mock'); expect(repository).toBe(mockRepository); });
   it('보기 피드백·실습 정답·자막·다중 연결을 저장하고 영상 교체 시 버전만 증가시킨다', async () => {
     const course = await mockRepository.saveCourse({ ...emptyCourse(), title: '로컬 확인' }, true);
     const first = await mockRepository.upload(new File(['a'], '첫영상.mp4'), 'video', { duration: 60 });

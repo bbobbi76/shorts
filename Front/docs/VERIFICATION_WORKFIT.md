@@ -1,3 +1,5 @@
+> 이 문서는 2026-10-25 당시의 기록입니다. 현재 구조·수정·검증 내용은 [5주차 관리자 점검](ADMIN_REVIEW_WEEK5.md), API 모드는 [API 계약](API_CONTRACT.md)을 참고하세요.
+
 # WorkFit 프론트 검증
 
 검증일: 2026-10-25. 로컬 소스 `admin-frontend` 기준입니다.
