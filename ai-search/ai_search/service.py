@@ -40,11 +40,16 @@ class SearchService:
         store: SubtitleStore,
         refiner: Refiner | None = None,
         min_score: float = 0.5,
+        refine_min_similarity: float = 0.0,
+        relative_margin: float | None = None,
     ):
         self._embedder = embedder
         self._store = store
         self._refiner = refiner
         self._min_score = min_score
+        self._refine_min_similarity = refine_min_similarity
+        # 1위 영상보다 이만큼 이상 낮은 결과는 버린다 (None이면 끔). 약하게 걸린 영상이 줄줄이 붙지 않게
+        self._relative_margin = relative_margin
 
     def index_video(self, video_id: str, segments: list[Segment], title: str = "") -> int:
         """영상 공개·수정 시 호출. 같은 video_id의 기존 자막은 교체된다."""
@@ -66,19 +71,46 @@ class SearchService:
         visible: VisibleFilter | None = None,
     ) -> SearchOutcome:
         refined = self._refiner.refine(query) if self._refiner else None
-        embedding = self._embedder.embed([refined or query], "query")[0]
+        if refined == query:
+            refined = None
+        embeddings = self._embedder.embed([query, refined] if refined else [query], "query")
 
         # 영상별로 묶거나 비공개를 거르면 개수가 줄어드니 넉넉히 가져온다
-        hits = [h for h in self._store.query(embedding, top_k * 5) if h.score >= self._min_score]
+        n = top_k * 5
+        hits = self._store.query(embeddings[0], n)
+        # 정제 검색어는 원문 검색에 더하기만 한다. LLM이 질문을 엉뚱하게 바꿔도 원문 결과는 남고,
+        # 원문과 의미가 너무 멀어진 검색어는 지어낸 것으로 보고 버린다
+        if refined and _cosine(embeddings[0], embeddings[1]) >= self._refine_min_similarity:
+            hits = _merge_hits(hits, self._store.query(embeddings[1], n))
+        else:
+            refined = None
+        hits = [h for h in hits if h.score >= self._min_score]
         if visible is not None and hits:
             allowed = set(visible(sorted({h.video_id for h in hits})))
             hits = [h for h in hits if h.video_id in allowed]
 
         if group_by_video:
-            results = _group_by_video(hits)[:top_k]
+            results = _group_by_video(hits)
         else:
-            results = [VideoResult(h.video_id, h.start, h.end, h.score, h.text) for h in hits[:top_k]]
-        return SearchOutcome(query=query, refined_query=refined, results=results)
+            results = [VideoResult(h.video_id, h.start, h.end, h.score, h.text) for h in hits]
+        if self._relative_margin is not None and results:
+            results = [r for r in results if r.score >= results[0].score - self._relative_margin]
+        return SearchOutcome(query=query, refined_query=refined, results=results[:top_k])
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    # 임베더가 정규화된 벡터를 돌려주므로 내적이 코사인 유사도
+    return sum(x * y for x, y in zip(a, b))
+
+
+def _merge_hits(*hit_lists: list[Hit]) -> list[Hit]:
+    """같은 구간은 높은 점수 하나만 남기고 점수 내림차순으로 합친다."""
+    best: dict[tuple[str, float], Hit] = {}
+    for hit in (h for hits in hit_lists for h in hits):
+        key = (hit.video_id, hit.start)
+        if key not in best or hit.score > best[key].score:
+            best[key] = hit
+    return sorted(best.values(), key=lambda h: h.score, reverse=True)
 
 
 def _group_by_video(hits: list[Hit]) -> list[VideoResult]:

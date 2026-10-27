@@ -18,13 +18,15 @@ def get_search_service() -> SearchService:
     if settings.provider == "gemini":
         embedder = GeminiEmbedder(settings.gemini_api_key, settings.gemini_embedding_model)
         refiner = (
-            GeminiRefiner(settings.gemini_api_key, settings.gemini_refine_model)
+            GeminiRefiner(settings.gemini_api_key, settings.gemini_refine_model, settings.refine_wait_seconds)
             if settings.gemini_refine
             else None
         )
     else:
         embedder, refiner = MockEmbedder(), None
-    return SearchService(embedder, store, refiner, settings.min_score)
+    return SearchService(
+        embedder, store, refiner, settings.min_score, settings.refine_min_similarity, settings.relative_margin
+    )
 
 
 def get_visible_filter() -> VisibleFilter | None:
