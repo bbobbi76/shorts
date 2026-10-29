@@ -371,3 +371,90 @@ def test_legacy_unassigned_draft_can_still_be_opened(env):
     assert r.status_code == 200, r.text
     assert r.json()["learningGoal"] == "목표" and len(r.json()["optionFeedbacks"]) == 2
     assert c.get("/api/ui/admin/contents").status_code == 200
+
+
+@pytest.mark.parametrize("phase", ["flush", "commit"])
+def test_upload_db_failure_removes_disk_file_and_rolls_back(env, monkeypatch, phase):
+    c, factory, path = env
+    h = login(c)
+    client = TestClient(app, raise_server_exceptions=False)
+    client.cookies.update(c.cookies)
+    def fail(*args, **kwargs):
+        raise RuntimeError("simulated database failure")
+    with monkeypatch.context() as patch:
+        patch.setattr(factory.class_, phase, fail)
+        r = client.post("/api/ui/admin/media", data={"kind": "resource"},
+                        files={"file": ("test.txt", b"keep no orphan", "text/plain")}, headers=h)
+    assert r.status_code == 500
+    assert not [p for p in path.rglob("*") if p.is_file()]
+    with factory() as db:
+        assert list(db.scalars(select(StoredFile))) == []
+    # 다음 업로드가 정상 동작하는지도 확인합니다.
+    assert c.post("/api/ui/admin/media", data={"kind": "resource"},
+                  files={"file": ("ok.txt", b"ok", "text/plain")}, headers=h).status_code == 201
+
+
+def test_video_metadata_failure_is_one_transaction(env):
+    from pathlib import Path
+    c, factory, path = env
+    h = login(c)
+    client = TestClient(app, raise_server_exceptions=False)
+    client.cookies.update(c.cookies)
+    def fail(*args):
+        raise RuntimeError("simulated media metadata failure")
+    event.listen(UiRecord, "before_insert", fail)
+    try:
+        sample = Path(__file__).resolve().parents[2] / "Front/public/demo-sample.mp4"
+        with sample.open("rb") as f:
+            r = client.post("/api/ui/admin/media", data={"kind": "video"},
+                files={"file": ("sample.mp4", f, "video/mp4")}, headers=h)
+    finally:
+        event.remove(UiRecord, "before_insert", fail)
+    assert r.status_code == 500
+    assert not [p for p in path.rglob("*") if p.is_file()]
+    with factory() as db:
+        assert list(db.scalars(select(StoredFile))) == []
+        assert list(db.scalars(select(UiRecord))) == []
+
+
+def test_stream_read_failure_removes_partial_file(env):
+    from fastapi import UploadFile
+    _, factory, path = env
+    class BrokenReader(io.BytesIO):
+        def read(self, size=-1):
+            if self.tell():
+                raise OSError("simulated stream interruption")
+            return super().read(2)
+    with factory() as db:
+        with pytest.raises(OSError, match="stream interruption"):
+            files.upload(UploadFile(file=BrokenReader(b"partial"), filename="broken.txt"), "RESOURCE", 1, db)
+    assert not [p for p in path.rglob("*") if p.is_file()]
+
+
+def test_failed_upload_does_not_delete_existing_file(env, monkeypatch):
+    from fastapi import UploadFile
+    _, factory, path = env
+    monkeypatch.setattr(files.uuid, "uuid4", lambda: "existing")
+    target = path / "resource" / "existing.txt"
+    target.parent.mkdir()
+    target.write_bytes(b"original")
+    with factory() as db:
+        with pytest.raises(FileExistsError):
+            files.upload(UploadFile(file=io.BytesIO(b"replacement"), filename="file.txt"), "RESOURCE", 1, db)
+    assert target.read_bytes() == b"original"
+
+
+def test_metadata_lists_use_cookie_auth_and_database_ids(env):
+    from app.models import Skill
+    c, factory, _ = env
+    assert c.get("/api/ui/admin/categories").status_code == 401
+    assert c.get("/api/ui/admin/skills").status_code == 401
+    login(c)
+    with factory() as db:
+        db.add(Category(id=2, name="문서 작성", category_type="COMMON"))
+        db.add(Skill(id=1, category_id=1, name="함수", description="조건 함수"))
+        db.commit()
+    assert c.get("/api/ui/admin/categories").json()[0] == {"id": "1", "name": "엑셀", "categoryType": "COMMON"}
+    assert c.get("/api/ui/admin/skills?categoryId=1").json()[0]["categoryId"] == "1"
+    assert c.get("/api/ui/admin/skills?categoryId=2").json() == []
+    assert c.get("/api/ui/admin/skills?categoryId=999").status_code == 404

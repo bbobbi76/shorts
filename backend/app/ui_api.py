@@ -4,6 +4,7 @@
 UiRecord는 UUID 중복 방지와 기존 DB에 없는 화면 메타데이터를 보관합니다.
 """
 import secrets
+import struct
 import time
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -22,8 +23,8 @@ from .models import Category, Content, Course, Practice, Resource, StoredFile, U
 from .routers import contents as native
 from .schemas import QuizIn
 from . import files
-from .ui_contract import (CatalogOut, ContentOut, CourseOut, ErrorOut, MediaOut,
-                          PublicContentOut, ResourceOut, SessionOut, TagOut)
+from .ui_contract import (CatalogOut, CategoryOut, ContentOut, CourseOut, ErrorOut, MediaOut,
+                          PublicContentOut, ResourceOut, SessionOut, SkillOut, TagOut)
 
 
 class UiRecord(Base):
@@ -485,24 +486,20 @@ def unpublish(cid: str, db: Session = Depends(get_db), uid: int = Depends(admin)
 @router.post("/admin/media", status_code=201, response_model=MediaOut)
 def upload(file: UploadFile = File(...), kind: Literal["video", "thumbnail", "practice", "resource"] = Form(...), db: Session = Depends(get_db),
            uid: int = Depends(admin)):
-    out = files.upload(file, kind.upper(), uid, db)
-    f = db.get(StoredFile, out.id)
-    if kind == "video":
-        # 실제 MP4에서 길이를 읽어 브라우저가 보낸 재생 시간을 신뢰하지 않습니다.
-        from .mp4 import duration_seconds
-        try:
-            duration = duration_seconds(UPLOAD_DIR / f.stored_path)
-            if duration <= 0:
-                raise ValueError("empty duration")
-        except Exception:
-            (UPLOAD_DIR / f.stored_path).unlink(missing_ok=True)
-            db.delete(f)
-            db.commit()
-            raise ApiError(422, "유효한 MP4 영상을 분석할 수 없습니다. 다른 영상을 선택해 주세요.")
-        db.add(UiRecord(kind="media", owner_id=uid, request_key=str(f.id), native_id=f.id,
-                        payload={"duration": duration}))
-        db.commit()
-    return media(db, f)
+    def prepare(f):
+        if kind == "video":
+            from .mp4 import duration_seconds
+            try:
+                duration = duration_seconds(UPLOAD_DIR / f.stored_path)
+                if duration <= 0:
+                    raise ValueError("empty duration")
+            except (ValueError, OSError, IndexError, struct.error):
+                raise ApiError(422, "유효한 MP4 영상을 분석할 수 없습니다. 다른 영상을 선택해 주세요.")
+            db.add(UiRecord(kind="media", owner_id=uid, request_key=str(f.id), native_id=f.id,
+                            payload={"duration": duration}))
+            db.flush()
+        return media(db, f)
+    return files.save_upload(file, kind.upper(), uid, db, prepare)
 
 
 @router.get("/admin/media/{mid}/file")
@@ -573,6 +570,22 @@ class ResourceBody(BaseModel):
 def catalog(db: Session = Depends(get_db), _: int = Depends(admin)):
     return {"tags": [tag_out(t) for t in db.scalars(select(Tag).order_by(Tag.id))],
             "resources": [resource_out(db, r) for r in db.scalars(select(Resource).order_by(Resource.id))]}
+
+
+@router.get("/admin/categories", response_model=list[CategoryOut])
+def category_options(db: Session = Depends(get_db), _: int = Depends(admin)):
+    return [{"id": str(c.id), "name": c.name, "categoryType": c.category_type}
+            for c in db.scalars(select(Category).order_by(Category.sort_order, Category.id))]
+
+
+@router.get("/admin/skills", response_model=list[SkillOut])
+def skill_options(categoryId: str | None = None, db: Session = Depends(get_db), _: int = Depends(admin)):
+    stmt = select(Skill).order_by(Skill.sort_order, Skill.id)
+    if categoryId is not None:
+        category = get_id(db, Category, categoryId)
+        stmt = stmt.where(Skill.category_id == category.id)
+    return [{"id": str(s.id), "categoryId": str(s.category_id), "name": s.name,
+             "description": s.description or ""} for s in db.scalars(stmt)]
 
 
 def catalog_record(db, model, kind, value, uid):

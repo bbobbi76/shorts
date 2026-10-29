@@ -83,6 +83,19 @@ class CatalogOut(BaseModel):
     resources: list[ResourceOut]
 
 
+class CategoryOut(BaseModel):
+    id: str
+    name: str
+    categoryType: str
+
+
+class SkillOut(BaseModel):
+    id: str
+    categoryId: str
+    name: str
+    description: str
+
+
 class PublicContentOut(BaseModel):
     id: str
     courseId: str

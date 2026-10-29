@@ -2,7 +2,7 @@
 
 ## 실행 준비
 
-`week4-backend-integration` 브랜치를 사용합니다. 최신 main의 Front 변경사항을 반영한 수정본입니다.
+4주차 수정본은 main에 반영되어 있습니다. 파일 업로드 실패 처리와 분야·스킬 조회 API가 포함된 5주차 수정본은 `week5-backend-followup` 브랜치를 사용합니다. 프론트 담당자의 `front` PR 반영 여부는 별도로 확인합니다.
 
 - Python 3.12
 - MySQL 8.0
