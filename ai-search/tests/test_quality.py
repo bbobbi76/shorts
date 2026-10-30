@@ -115,3 +115,51 @@ def test_refiner_pauses_after_quota_error():
     assert refiner.refine("첫 질문") is None
     assert refiner.refine("둘째 질문") is None  # 한도가 풀릴 때까지 호출하지 않는다
     assert len(calls) == 1
+
+
+def test_refiner_keeps_result_that_arrives_after_the_limit():
+    calls = []
+    refiner = make_refiner(lambda q: calls.append(q) or time.sleep(0.3) or "엑셀 중복 제거", wait_seconds=0.05)
+    assert refiner.refine("겹치는 데이터 지우기") is None
+    refiner._pool.shutdown(wait=True)  # 뒤에서 돌던 호출이 끝나기를 기다린다
+    assert refiner.refine("겹치는 데이터 지우기") == "엑셀 중복 제거"
+    assert len(calls) == 1
+
+
+def test_refiner_notices_quota_error_after_the_limit():
+    calls = []
+
+    def call(q):
+        calls.append(q)
+        time.sleep(0.3)
+        raise QuotaError()
+
+    refiner = make_refiner(call, wait_seconds=0.05)
+    assert refiner.refine("첫 질문") is None
+    refiner._pool.shutdown(wait=True)
+    assert refiner.refine("둘째 질문") is None
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("answer", ["겹치는 데이터 지우기", "엑셀 중복 제거\n이렇게 검색하면 됩니다."])
+def test_refiner_does_not_repeat_call_for_unusable_answer(answer):
+    # 원문과 같거나 검색어로 못 쓰는 답도 같은 질문으로 한도를 다시 쓰지 않는다
+    calls = []
+    refiner = make_refiner(lambda q: calls.append(q) or answer)
+    assert refiner.refine("겹치는 데이터 지우기") is None
+    assert refiner.refine("겹치는 데이터 지우기") is None
+    assert len(calls) == 1
+
+
+def test_refiner_retries_after_failed_call():
+    calls = []
+
+    def call(q):
+        calls.append(q)
+        if len(calls) == 1:
+            raise RuntimeError("일시적 오류")
+        return "엑셀 중복 제거"
+
+    refiner = make_refiner(call)
+    assert refiner.refine("겹치는 데이터 지우기") is None
+    assert refiner.refine("겹치는 데이터 지우기") == "엑셀 중복 제거"
