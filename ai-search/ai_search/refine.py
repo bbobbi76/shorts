@@ -48,8 +48,8 @@ def _retry_seconds(exc: Exception) -> float | None:
 class GeminiRefiner:
     """질문을 검색어로 다듬는다. 실패하면 None을 돌려 원문으로 검색하게 한다.
 
-    - wait_seconds 안에 답이 없으면 기다리지 않는다 (호출은 뒤에서 끝까지 진행되고 버려진다)
-    - 같은 질문은 성공한 정제 결과를 기억해 다시 호출하지 않는다
+    - wait_seconds 안에 답이 없으면 기다리지 않는다 (호출은 뒤에서 끝까지 진행되고 결과는 다음 검색에 쓴다)
+    - 같은 질문은 받은 답을 기억해 다시 호출하지 않는다 (검색어로 못 쓰는 답도 한도를 아끼려고 기억한다)
     - 무료 등급 한도(429)에 걸리면 다시 시도할 수 있을 때까지 호출하지 않는다
     """
 
@@ -64,7 +64,7 @@ class GeminiRefiner:
             api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000))
         )
         self._wait_seconds = wait_seconds
-        self._cache: OrderedDict[str, str] = OrderedDict()
+        self._cache: OrderedDict[str, str | None] = OrderedDict()
         self._cache_size = cache_size
         self._blocked_until = 0.0
         self._lock = threading.Lock()
@@ -79,12 +79,17 @@ class GeminiRefiner:
             if time.monotonic() < self._blocked_until:
                 return None
 
-        future = self._pool.submit(self._call, query)
+        future = self._pool.submit(self._refine_and_remember, key, query)
         try:
-            refined = future.result(timeout=self._wait_seconds)
+            return future.result(timeout=self._wait_seconds)
         except FutureTimeout:
             logger.warning("질문 정제가 %.1f초 안에 끝나지 않아 원문으로 검색", self._wait_seconds)
             return None
+
+    def _refine_and_remember(self, key: str, query: str) -> str | None:
+        # 기다리기를 포기한 뒤에도 결과와 한도 초과를 놓치지 않게 호출한 스레드에서 처리한다
+        try:
+            raw = self._call(query)
         except Exception as exc:
             if getattr(exc, "code", None) == 429:
                 cooldown = _retry_seconds(exc) or DEFAULT_COOLDOWN_SECONDS
@@ -95,12 +100,11 @@ class GeminiRefiner:
                 logger.warning("질문 정제 실패, 원문으로 검색", exc_info=True)
             return None
 
-        refined = clean_refined(refined, query)
-        if refined:
-            with self._lock:
-                self._cache[key] = refined
-                if len(self._cache) > self._cache_size:
-                    self._cache.popitem(last=False)
+        refined = clean_refined(raw, query)
+        with self._lock:
+            self._cache[key] = refined
+            if len(self._cache) > self._cache_size:
+                self._cache.popitem(last=False)
         return refined
 
     def _call(self, query: str) -> str:
