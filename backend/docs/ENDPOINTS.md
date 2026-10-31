@@ -3,6 +3,7 @@
 기본 경로는 `/api/ui`입니다. 최신 Front 모델을 기준으로 요청·응답을 맞췄습니다.
 실행 방법과 개발 계정은 [연동 안내](INTEGRATION_GUIDE.md)를 참고합니다.
 서버 실행 후 `/docs`에서 필수 필드, 타입, 길이 제한과 응답 모델을 확인할 수 있습니다.
+필드별 타입·필수 여부·길이와 값 제한은 [API_FIELDS.md](API_FIELDS.md)에 정리했습니다.
 
 ## 인증과 공통 규칙
 
@@ -34,6 +35,8 @@
 | POST | `/admin/media` | multipart의 file, kind / MediaOut |
 | GET | `/admin/media/{id}/file` | 인증 후 파일 바이너리 |
 | GET | `/admin/catalog` | tags, resources 배열 |
+| GET | `/admin/categories` | DB 분야 목록. id, name, categoryType |
+| GET | `/admin/skills` | DB 스킬 목록. categoryId 필터 선택 |
 | POST | `/admin/tags` | TagBody / TagOut |
 | POST | `/admin/resources` | ResourceBody / ResourceOut |
 | GET | `/courses`, `/courses/{id}` | 공개 과정 배열 또는 상세 |
@@ -42,6 +45,25 @@
 
 태그·자료 저장은 upsert입니다. 신규에는 UUID, 수정에는 조회 응답의 숫자 ID 문자열을 보냅니다.
 같은 관리자가 신규 UUID를 재사용하면 기존 항목을 수정합니다. 태그·자료 삭제 API는 제공하지 않습니다.
+
+### 분야·스킬 선택 목록
+
+기존 쿠키 로그인을 사용합니다. 프론트의 고정 목록 대신 아래 서버 ID를 저장 요청에 사용합니다.
+
+GET `/api/ui/admin/categories` 응답 예시:
+
+```json
+[{"id":"4","name":"엑셀","categoryType":"COMMON"}]
+```
+
+GET `/api/ui/admin/skills?categoryId=4` 응답 예시:
+
+```json
+[{"id":"2","categoryId":"4","name":"함수 활용","description":"조건 함수"}]
+```
+
+categoryId를 생략하면 전체 스킬, 분야에 스킬이 없으면 빈 배열을 반환합니다.
+없는 분야 ID는 404, 미로그인은 401, 비활성·권한 없는 계정은 403입니다.
 
 ## 요청 예시
 
@@ -106,6 +128,8 @@
 업로드 kind는 video/thumbnail/practice/resource입니다. multipart Content-Type은 브라우저에 맡깁니다.
 video는 MP4 최대 200MiB, 나머지는 20MiB입니다. 프론트는 영상 100MiB·썸네일 5MiB로 더 엄격히 제한합니다.
 응답은 id/name/size/type/kind와 영상 duration을 포함합니다. 허용 확장자는 app/files.py를 참고합니다.
+DB 기록·영상 분석·보조 메타데이터 저장 중 실패하면 DB를 rollback하고 해당 요청에서 만든 파일을 삭제합니다.
+DB의 files 행과 영상 UiRecord 메타데이터는 한 트랜잭션으로 저장합니다. 기존 파일은 덮어쓰지 않습니다.
 파일 Range 요청은 206일 수 있습니다.
 
 공개 조회는 과정과 콘텐츠가 모두 PUBLISHED인 경우에만 반환합니다. 목록은 `?courseId=1` 필터를 지원합니다.
