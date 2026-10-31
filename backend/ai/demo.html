@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>실무 과제 AI 피드백 데모</title>
+<style>body{font-family:system-ui,'Malgun Gothic',sans-serif;background:#f5f7fa;color:#182534;margin:0;padding:28px}main{max-width:850px;margin:auto;background:white;border-radius:14px;padding:24px;box-shadow:0 5px 22px #0001}h1{font-size:25px}p{color:#566477}label{display:block;font-weight:600;margin:13px 0 5px}textarea,input,select{box-sizing:border-box;width:100%;padding:11px;border:1px solid #c7d0da;border-radius:7px;font:inherit}textarea{min-height:70px}button{padding:12px 19px;background:#155be5;color:white;border:0;border-radius:8px;cursor:pointer;margin-top:16px}button:disabled{opacity:.55}.hint{background:#fff3d4;padding:12px;border-radius:9px}.result{margin-top:18px;padding:16px;border:1px solid #dee4eb;border-radius:9px;display:none}li{margin:6px 0}code{white-space:pre-wrap;overflow-wrap:anywhere}.error{color:#ae2135}.pill{font-size:13px;color:#444;padding:5px 10px;border-radius:15px;background:#ebedf2}</style></head>
+<body><main><h1>실무 교육 숏폼 · AI 피드백 데모</h1><p>정답 / 부분 정답 / 오답을 선택해 실제 AI 평가와 목업 결과를 비교해 볼 수 있습니다.</p>
+<div class="hint"><b>AI 담당 독립 데모:</b> 루브릭 모드는 서버의 고정 평가 세트를 사용합니다. Mock은 고정 예시 점수입니다. Gemini 모드는 API 키가 필요하며 외부 호출 비용이 발생할 수 있습니다. 사용자 페이지와는 별개입니다.</div>
+<label for="mode">평가 모드</label><select id="mode"><option value="rubric">서버 루브릭 데모 (DB·API 키 불필요)</option><option value="gemini_demo">Gemini + 데모 과제 (DB 불필요)</option><option value="mock">기존 Mock 예시</option><option value="live">실제 DB 과제 + AI</option></select>
+<label for="demo_practice">데모 과제</label><select id="demo_practice"><option value="1">SUMIF</option><option value="2">SUMIFS</option><option value="3">IF</option><option value="4">정답 미등록 · 보류</option></select>
+<label for="practice_id">서버 과제 ID (실제 평가)</label><input id="practice_id" type="number" min="1" step="1" placeholder="공개된 practices.practice_id">
+<label for="answer_type">제출 유형 (실제 평가)</label><select id="answer_type"><option value="FORMULA">수식</option><option value="RESULT">결과값</option></select>
+<label for="task_title">과제 제목</label><input id="task_title" value="엑셀 영업팀 매출 합계">
+<label for="task_instruction">과제 설명</label><textarea id="task_instruction">A열은 팀 이름이고 B열은 매출입니다. 영업팀의 매출 합계를 구하는 수식을 작성하세요.</textarea>
+<label for="expected_answer">기대 답안 (Mock 전용)</label><input id="expected_answer" value='=SUMIF(A:A,"영업팀",B:B)'>
+<label for="preset">예시 답안 선택</label><select id="preset"><option value="correct">정답</option><option value="partial" selected>부분 정답</option><option value="wrong">오답</option><option value="review">판단 근거 부족 · 보류</option></select>
+<label for="learner_answer">학습자 답안</label><input id="learner_answer" value='=SUMIF(A:A,"영업팀")'>
+<button id="submit">피드백 생성</button> <span id="state" class="pill">실행 전</span>
+<section id="result" class="result" aria-live="polite"></section>
+<p style="font-size:13px">실제 평가는 과제 ID로 서버 정답과 기준을 조회합니다. 과제 제목·설명·기대 답안 입력은 Mock에서만 사용됩니다.</p></main>
+<script>
+const $=id=>document.getElementById(id);
+const samples={
+  '1':{correct:'=SUMIF(A:A,"영업팀",B:B)',partial:'=SUMIF(A:A,"영업팀")',wrong:'=AVERAGE(B:B)',review:'판단 근거가 없는 풀이입니다.'},
+  '2':{correct:'=SUMIFS(B:B,A:A,"영업팀",C:C,"3월")',partial:'=SUMIFS(B:B,A:A,"영업팀",C:C,"4월")',wrong:'=SUMIF(A:A,"영업팀",B:B)',review:'=SUMPRODUCT(B:B)'},
+  '3':{correct:'=IF(A1>=60,"합격","재시험")',partial:'=IF(A1>=60,"합격","불합격")',wrong:'=SUM(A1:A3)',review:'=IFS(A1>=60,"합격")'},
+  '4':{correct:'=SUM(B:B)',partial:'=SUM(B:B)',wrong:'=SUM(B:B)',review:'=SUM(B:B)'}
+};
+function applyPreset(){const id=$('mode').value==='mock'?'1':$('demo_practice').value;$('learner_answer').value=samples[id][$('preset').value]}
+$('preset').onchange=applyPreset;
+$('demo_practice').onchange=applyPreset;
+function modeChanged(){
+  const mode=$('mode').value;
+  $('practice_id').disabled=mode!=='live';
+  $('demo_practice').disabled=!['rubric','gemini_demo'].includes(mode);
+  $('answer_type').disabled=mode==='mock';
+  for(const id of ['task_title','task_instruction','expected_answer']) $(id).disabled=mode!=='mock';
+  if(mode!=='live') applyPreset();
+}
+$('mode').onchange=modeChanged;
+modeChanged();
+function line(el,tag,text){const n=document.createElement(tag);n.textContent=text;el.appendChild(n)}
+$('submit').onclick=async()=>{const mode=$('mode').value;const live=mode==='live';const demo=['rubric','gemini_demo'].includes(mode);$('submit').disabled=true;$('state').textContent='평가 중...';$('result').style.display='none';$('result').replaceChildren();
+try {
+  const payload = live || demo
+    ? {practice_id:Number(demo?$('demo_practice').value:$('practice_id').value), learner_answer:$('learner_answer').value, answer_type:$('answer_type').value}
+    : Object.fromEntries(['task_title','task_instruction','expected_answer','learner_answer'].map(k=>[k,$(k).value]));
+  const url=demo?'/api/ai/demo/feedback?mode='+(mode==='rubric'?'rubric':'gemini'):live?'/api/ai/feedback':'/api/ai/feedback/mock';
+  const start=performance.now();
+  const response=await fetch(url, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+  });
+  const data=await response.json();
+  if(!response.ok) throw new Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||`HTTP ${response.status}`));
+  const root=$('result');
+  const labels={rubric:'서버 루브릭 데모',gemini_demo:'Gemini · 고정 데모 과제',live:'실제 DB · AI 평가',mock:'MOCK 예시 평가'};
+  line(root,'h2',`${labels[mode]} · ${data.score===null?'평가 보류':data.score+'점'}`);
+  line(root,'p',`상태: ${data.status} / 소요: ${((performance.now()-start)/1000).toFixed(2)}초`);
+  for(const [name,k] of [['잘한 점','good_points'],['개선점','improvement_points']]) {
+    line(root,'h3',name); const ul=document.createElement('ul');
+    for(const v of data[k]) line(ul,'li',v);
+    root.appendChild(ul);
+  }
+  for(const [name,k] of [['수정 답안','corrected_answer'],['설명','explanation'],['다음 연습','next_practice']]) {
+    line(root,'h3',name); line(root,'p',data[k]);
+  }
+  root.style.display='block'; $('state').textContent=data.status==='needs_review'?'보류':'완료';
+} catch(e) {
+  $('result').style.display='block'; line($('result'),'p',String(e)); $('state').textContent='오류';
+} finally { $('submit').disabled=false; }
+};
+</script></body></html>
