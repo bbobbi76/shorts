@@ -19,5 +19,22 @@
 .badge.hidden { color:#647068; background:#eef1ee; }.badge.review { color:#8a5d17; background:#fff5d8; }
 .editor-steps { flex-wrap:wrap; }
 .wf-course-state { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.admin-stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin:22px 0 28px; }
+.admin-stat-grid>div { padding:23px 25px; }
+.admin-stat-grid dt { color:var(--muted); font-size:13px; }
+.admin-stat-grid dd { margin:14px 0 0; font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; }
+.admin-stat-grid small { margin-left:8px; font-size:12px; font-weight:400; color:var(--muted); }
+.admin-dashboard-lists { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.admin-dashboard-lists>section { padding:24px; min-width:0; }
+.admin-dashboard-lists ul { list-style:none; padding:0; margin:0; }
+.admin-dashboard-lists li { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:17px 0; border-top:1px solid var(--line); font-size:13px; overflow-wrap:anywhere; }
+.admin-dashboard-lists li a { flex:1; min-width:100px; line-height:1.7; }
+.admin-dashboard-lists small { color:var(--muted); font-size:11px; }
+.admin-order-panel { padding:24px; }
+.admin-order-list { list-style:none; padding:0; margin:20px 0; }
+.admin-order-list>li { display:flex; align-items:center; gap:18px; padding:18px 0; border-bottom:1px solid var(--line); }
+.admin-order-list>li>div:first-of-type { min-width:0; flex:1; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.admin-order-list a { font-size:14px; line-height:1.8; overflow-wrap:anywhere; }
+@media(max-width:760px) { .admin-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }.admin-stat-grid>div { padding:20px; }.admin-dashboard-lists { grid-template-columns:minmax(0,1fr); }.admin-order-panel { padding:18px; }.admin-order-list>li { gap:10px; }.admin-order-list .button-row { flex-wrap:nowrap; gap:0; } }
 @media(max-width:900px) { .wf-catalog-layout { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:600px) { .wf-grid,.wf-checks { grid-template-columns:minmax(0,1fr); }.wf-catalog-list,.wf-catalog-form { padding:20px; }.wf-option-feedback,.wf-subtitle { padding:14px; } }

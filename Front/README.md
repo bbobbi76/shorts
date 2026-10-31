@@ -29,16 +29,20 @@ http://127.0.0.1:5173/admin/contents 에 접속합니다. `start-local.cmd`를 �
 
 | 주소 | 용도 |
 | --- | --- |
+| `/admin/dashboard` | 회원·과정·콘텐츠·자료 통계와 최근 운영 내역 |
 | `/admin/courses` | 과정 목록·등록·수정 |
+| `/admin/courses/:id/order` | 과정 전체 콘텐츠 순서 변경·저장 |
 | `/admin/contents` | 콘텐츠 목록·등록·수정·미리보기·공개 |
 | `/admin/resources` | 실무자료 관리 |
 | `/admin/tags` | 검색 태그·동의어 관리 |
 | `/learn/courses` | 등록한 공개 과정 탐색 |
 | `/learn/courses/:id` | 공개 콘텐츠를 입력한 순서대로 표시 |
-| `/learn/contents/:id` | 영상·자막·실습 안내·자료 확인 |
-| `/learn`, `/learn/preview` | 기존 검색·학습·AI 피드백 화면 목업 |
+| `/learn` | 공개 영상의 제목·학습 목표·자막 검색, 과정·난이도 필터, 이어보기 |
+| `/learn/contents/:id` | 영상 재생·자막 구간 이동·실습 자료 다운로드·학습 메모 |
+| `/learn/history` | 이 브라우저의 시청 위치·메모 확인 및 삭제 |
+| `/learn/preview` | 기존 과제·AI 피드백 화면 예시 |
 
-기존 AI 퀴즈 초안 화면은 화면 예시로 유지했습니다. 실제 AI 생성·검색 서버·학습 기록 저장·채점은 연결하지 않았습니다.
+기존 AI 퀴즈 초안과 `/learn/preview`는 화면 예시로 유지했습니다. `/learn`의 검색은 실제 공개 자료를 대상으로 하는 단어 검색입니다. AI 검색 서버·퀴즈 제출·AI 피드백·서버 학습 기록은 아직 연결하지 않았습니다. 시청 위치와 메모는 이 브라우저에 저장하며 로그인 계정 간 동기화되지 않습니다.
 
 ## 저장 방식
 
@@ -53,7 +57,7 @@ npm.cmd test
 npm.cmd run build
 ```
 
-이번 프론트 작업 요약은 [WEEK5_FRONTEND_WORK.md](docs/WEEK5_FRONTEND_WORK.md), 현재 폴더 구조와 관리자 보완·검증 내용은 [ADMIN_REVIEW_WEEK5.md](docs/ADMIN_REVIEW_WEEK5.md), 현재 API 요청 형식은 [API_CONTRACT.md](docs/API_CONTRACT.md)를 확인하세요. [WORKFIT_DB_ALIGNMENT.md](docs/WORKFIT_DB_ALIGNMENT.md)와 [VERIFICATION_WORKFIT.md](docs/VERIFICATION_WORKFIT.md)는 10월 25일 프론트 전용 작업 당시의 기록입니다.
+사용자 페이지의 구현 범위와 검증은 [LEARNER_FRONTEND_WORK.md](docs/LEARNER_FRONTEND_WORK.md)를 확인하세요. 관리자 작업 요약은 [WEEK5_FRONTEND_WORK.md](docs/WEEK5_FRONTEND_WORK.md), 관리자 보완·검증은 [ADMIN_REVIEW_WEEK5.md](docs/ADMIN_REVIEW_WEEK5.md), API 요청 형식은 [API_CONTRACT.md](docs/API_CONTRACT.md)를 확인하세요. [WORKFIT_DB_ALIGNMENT.md](docs/WORKFIT_DB_ALIGNMENT.md)와 [VERIFICATION_WORKFIT.md](docs/VERIFICATION_WORKFIT.md)는 10월 25일 프론트 전용 작업 당시의 기록입니다.
 
 ## 소스 구조
 
@@ -69,7 +73,7 @@ src/
       catalog/           # 검색 태그·실무자료 관리
       media/             # 업로드·파일 미리보기
       quiz/              # 기존 AI 퀴즈 화면 예시
-    learner/             # 기존 사용자 화면과 학습 목업
+    learner/             # 공개 자료 검색·과정·영상·자막·로컬 학습 기록 및 기존 화면 예시
   shared/                # 공통 폼·모달·오류 표시·날짜/파일 크기 표시
   domain/                # 데이터 타입·공개 조건·검증·기존 데이터 변환
   data/
@@ -80,3 +84,5 @@ src/
 ```
 
 관리자 기능은 해당 `features/admin/` 하위 폴더에서 수정하고, 서버 경로·요청 형식은 `data/api/`, 공통 데이터 타입은 `domain/model.ts`에서 관리합니다. IndexedDB 이름과 기존 데이터 변환 규칙은 유지했습니다.
+
+관리자 분야·스킬 DB 조회, 통계, 미공개 초안 삭제와 일괄 순서 변경의 연결·인증·검증 범위는 [ADMIN_API_CONNECTIONS.md](docs/ADMIN_API_CONNECTIONS.md)를 확인하세요. 삭제는 과정에 연결해 저장한 미공개 콘텐츠에 제공하며, 공개 이력은 서버가 검사합니다.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Routes, Route, useBlocker, useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, CheckCircle2, ChevronRight, CircleHelp, Clapperboard, FileText, Layers3, LockKeyhole, LogOut, Menu, Search, Settings2, ShieldCheck, X } from 'lucide-react';
+import { LayoutDashboard, BookOpen, CheckCircle2, ChevronRight, CircleHelp, Clapperboard, FileText, Layers3, LockKeyhole, LogOut, Menu, Search, Settings2, ShieldCheck, X } from 'lucide-react';
 import { dataMode, repository } from '../../data/repository';
 import { Context } from './context';
 import { toError } from '../../shared/format';
@@ -11,6 +11,9 @@ import { ContentEditor, EditorById } from './contents/ContentEditor';
 import { CourseList } from './courses/CourseList';
 import { CourseEditor, CourseById } from './courses/CourseEditor';
 import { CatalogPage } from './catalog/CatalogManager';
+import { MetadataProvider } from './metadata';
+import { DashboardPage } from './dashboard/DashboardPage';
+import { CourseOrder } from './courses/CourseOrder';
 import './workfit.css';
 
 export default function App() {
@@ -81,6 +84,7 @@ export default function App() {
   }
 
   return <Context.Provider value={{ handleError, notify, setDirty, authEpoch }}>
+    <MetadataProvider enabled={authState === 'ok'}>
     <a className="skip-link" href="#main-content">본문으로 바로가기</a>
     <div className="app-shell">
       <aside id="admin-sidebar" ref={sidebarRef} inert={isMobile && !mobileMenu} className={`sidebar ${mobileMenu ? 'mobile-open' : ''}`}>
@@ -88,6 +92,7 @@ export default function App() {
         <div className="workspace"><span className="workspace-mark">1</span><div>1조 워크스페이스<small>콘텐츠 운영 공간</small></div><ShieldCheck size={17}/></div>
         <span className="nav-label">콘텐츠 운영</span>
         <nav aria-label="관리자 메뉴">
+          <NavLink to="/admin/dashboard"><LayoutDashboard size={19}/>관리자 통계<ChevronRight size={15}/></NavLink>
           <NavLink to="/admin/contents"><Clapperboard size={19}/>콘텐츠 관리<ChevronRight size={15}/></NavLink>
           <NavLink to="/admin/courses"><BookOpen size={19}/>과정 관리<ChevronRight size={15}/></NavLink>
           <NavLink to="/admin/resources"><FileText size={19}/>실무자료 관리<ChevronRight size={15}/></NavLink>
@@ -98,9 +103,11 @@ export default function App() {
       </aside>
       {mobileMenu && <button className="nav-scrim" aria-label="메뉴 닫기" onClick={() => setMobileMenu(false)}/>}
       <div className="main-shell">
-        <header className="topbar"><button ref={menuButtonRef} className="mobile-toggle icon-button" aria-label="메뉴 열기" aria-controls="admin-sidebar" aria-expanded={mobileMenu} onClick={() => setMobileMenu(v => !v)}><Menu/></button><span>관리자 <ChevronRight size={13}/> {location.pathname.includes('courses') ? '과정 관리' : location.pathname.includes('resources') ? '실무자료 관리' : location.pathname.includes('tags') ? '검색 태그 관리' : '콘텐츠 관리'}</span><span className={`mode-dot ${dataMode}`}>{dataMode === 'mock' ? '예시 데이터' : 'API 연결'}</span></header>
+        <header className="topbar"><button ref={menuButtonRef} className="mobile-toggle icon-button" aria-label="메뉴 열기" aria-controls="admin-sidebar" aria-expanded={mobileMenu} onClick={() => setMobileMenu(v => !v)}><Menu/></button><span>관리자 <ChevronRight size={13}/> {location.pathname.includes('dashboard') ? '관리자 통계' : location.pathname.includes('courses') ? '과정 관리' : location.pathname.includes('resources') ? '실무자료 관리' : location.pathname.includes('tags') ? '검색 태그 관리' : '콘텐츠 관리'}</span><span className={`mode-dot ${dataMode}`}>{dataMode === 'mock' ? '예시 데이터' : 'API 연결'}</span></header>
         <div className="mode-banner"><span className="mode-banner-icon"><CircleHelp size={16}/></span>{dataMode === 'mock' ? '예시 데이터 모드 · 내용과 파일은 이 브라우저에 저장됩니다. 실제 서버 인증·DB 연결은 포함되지 않습니다.' : '서버 연결 모드 · 저장과 권한 확인은 연결된 백엔드에서 처리합니다.'}</div>
         <main id="main-content" tabIndex={-1}><Routes>
+          <Route path="dashboard" element={<DashboardPage/>}/>
+          <Route path="courses/:id/order" element={<CourseOrder/>}/>
           <Route path="contents" element={<ContentList/>}/>
           <Route path="contents/new" element={<ContentEditor key="new-content"/>}/>
           <Route path="contents/:id" element={<EditorById/>}/>
@@ -123,5 +130,5 @@ export default function App() {
     </Modal>}
     {settings && <Modal title="시연 설정" onClose={() => setSettings(false)}><p className="muted">{dataMode === 'api' ? '입력 내용과 파일은 연결된 서버에 저장됩니다.' : '입력 내용과 파일은 현재 브라우저에 저장됩니다.'}</p>{dataMode === 'mock' && <><hr/><h3>오류 처리 확인</h3><p className="help">아래 설정은 시연용입니다. 실패 후에도 작성 내용이 유지되는지 확인할 수 있어요.</p><div className="settings-actions"><button className="button" onClick={() => { sessionStorage.setItem('demo-failure', 'save'); notify('다음 저장 요청에서 한 번 실패합니다.'); setSettings(false); }}>다음 저장 실패</button><button className="button" onClick={() => { sessionStorage.setItem('demo-failure', 'upload'); notify('다음 업로드 요청에서 한 번 실패합니다.'); setSettings(false); }}>다음 업로드 실패</button><button className="button" onClick={() => { sessionStorage.setItem('demo-role', 'signed-out'); setAuthState('login'); setSettings(false); }}>로그인 만료 재현</button><button className="button" onClick={() => { sessionStorage.setItem('demo-role', 'member'); setGlobalError('일반 회원 계정은 관리자 화면을 이용할 수 없습니다.'); setAuthState('forbidden'); setSettings(false); }}>권한 없음 재현</button></div></>}</Modal>}
     {dirty && <span className="sr-only" role="status">저장하지 않은 변경사항이 있습니다.</span>}
-  </Context.Provider>;
+  </MetadataProvider></Context.Provider>;
 }

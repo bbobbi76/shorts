@@ -10,4 +10,5 @@ export interface PublicRepository {
   contents(courseId?: string): Promise<PublicContent[]>;
   content(id: string): Promise<PublicContent>;
   mediaBlob(media: Media): Promise<Blob>;
+  mediaUrl?(media: Media): string | undefined;
 }

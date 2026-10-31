@@ -35,4 +35,5 @@ it('사용자 API는 관리자 경로를 사용하지 않고 오류를 목업으
   expect(fetcher.mock.calls[0][0]).toBe('/api/courses');
   await expect(api.content('private')).rejects.toMatchObject({status:404});
   expect(fetcher.mock.calls[1][0]).toBe('/api/contents/private');
+  expect(api.mediaUrl?.({ id:'media/a', kind:'video', name:'video.mp4', type:'video/mp4', size:1, url:'https://untrusted.example/video' })).toBe('/api/media/media%2Fa/file');
 });

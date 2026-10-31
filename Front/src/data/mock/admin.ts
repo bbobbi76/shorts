@@ -1,8 +1,33 @@
-import { categories, publishIssues, validateFile, ServiceError, type Repository, type Catalog, type SearchTag, type WorkResource, type Media } from '../../domain/model';
+import { categories, skills, publishIssues, validateFile, ServiceError, type Repository, type Catalog, type SearchTag, type WorkResource, type Media } from '../../domain/model';
 import { validateContent, validateCourse } from '../../domain/validation';
 import { wait, stateAction, checkDemoAuth, demoFault, copy, found } from './store';
 
 export const mockRepository: Repository = {
+  async categories() { checkDemoAuth(); return copy(categories); },
+  async skills() { checkDemoAuth(); return copy(skills); },
+  async dashboard() {
+    checkDemoAuth(); return stateAction(s => ({ userCount: 1, courseCount: s.courses.length, publishedCourseCount: s.courses.filter(c => c.status === 'PUBLISHED').length,
+      contentCount: s.contents.length, draftContentCount: s.contents.filter(c => c.status === 'DRAFT').length, publishedContentCount: s.contents.filter(c => c.status === 'PUBLISHED').length,
+      hiddenContentCount: s.contents.filter(c => c.status === 'HIDDEN').length, resourceCount: s.resources.length, tagCount: s.tags.length,
+      recentContents: copy([...s.contents].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5).map(c => ({ id: c.id, title: c.title, status: c.status, updatedAt: c.updatedAt }))), recentLogs: [] }));
+  },
+  async removeContent(id) {
+    checkDemoAuth(); demoFault('save'); return stateAction(s => {
+      const value = found(s.contents.find(c => c.id === id));
+      if (value.publishedAt || !['DRAFT', 'REVIEW'].includes(value.status)) throw new ServiceError('공개 이력이 있는 콘텐츠는 삭제할 수 없습니다. 비공개로 변경해 주세요.', 400);
+      s.contents = s.contents.filter(c => c.id !== id);
+    }, true);
+  },
+  async courseContents(id) {
+    checkDemoAuth(); return stateAction(s => { found(s.courses.find(c => c.id === id)); return copy(s.contents.filter(c => c.courseId === id).sort((a, b) => a.sortOrder - b.sortOrder).map(c => ({ id: c.id, title: c.title, status: c.status, sortOrder: c.sortOrder, durationSec: c.video?.duration ?? null }))); });
+  },
+  async reorderContents(id, ids) {
+    checkDemoAuth(); demoFault('save'); await stateAction(s => {
+      found(s.courses.find(c => c.id === id)); const items = s.contents.filter(c => c.courseId === id);
+      if (ids.length !== items.length || new Set(ids).size !== ids.length || ids.some(value => !items.some(c => c.id === value))) throw new ServiceError('과정에 속한 콘텐츠 전체의 순서를 보내 주세요.', 400);
+      ids.forEach((value, index) => { const content = found(items.find(c => c.id === value)); content.sortOrder = index + 1; });
+    }, true); return mockRepository.courseContents(id);
+  },
   async session() { await wait(); checkDemoAuth(); return { name: '관리자', role: 'admin' }; },
   async login(_email, _password) { sessionStorage.setItem('demo-role', 'admin'); return { name: '관리자', role: 'admin' }; },
   async logout() { sessionStorage.setItem('demo-role', 'signed-out'); },
@@ -33,7 +58,7 @@ export const mockRepository: Repository = {
     return stateAction(s => {
       const value = found(s.contents.find(c => c.id === id));
       if (action === 'publish') { const errors = publishIssues(value, s.courses); if (errors.length) throw new ServiceError('공개에 필요한 항목을 확인해 주세요.', 422, errors); }
-      value.status = action === 'publish' ? 'PUBLISHED' : 'HIDDEN'; value.updatedAt = new Date().toISOString(); return copy(value);
+      value.status = action === 'publish' ? 'PUBLISHED' : 'HIDDEN'; value.updatedAt = new Date().toISOString(); if (action === 'publish') value.publishedAt ||= value.updatedAt; return copy(value);
     }, true);
   },
   async upload(file, kind, metadata) {

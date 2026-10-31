@@ -41,6 +41,14 @@ export interface Content {
   optionFeedbacks: OptionFeedback[]; practiceSettings: PracticeSettings;
   tagIds: string[]; skillIds: string[]; resourceIds: string[]; subtitles: Subtitle[];
   updatedAt: string;
+  publishedAt?: string | null;
+}
+export interface ContentOrderItem { id: string; title: string; status: Status; sortOrder: number; durationSec: number | null }
+export interface Dashboard {
+  userCount: number; courseCount: number; publishedCourseCount: number; contentCount: number;
+  draftContentCount: number; publishedContentCount: number; hiddenContentCount: number; resourceCount: number; tagCount: number;
+  recentContents: { id: number | string; title: string; status: Status; updatedAt: string | null }[];
+  recentLogs: { id: number; action: string; targetType: string; targetId: number; createdAt: string | null }[];
 }
 export interface Session { name: string; role: 'admin' | 'member' }
 export interface Repository {
@@ -56,6 +64,12 @@ export interface Repository {
   transition(id: string, action: 'publish' | 'unpublish'): Promise<Content>;
   upload(file: File, kind: MediaKind, metadata?: Partial<Media>): Promise<Media>;
   mediaBlob(media: Media): Promise<Blob | null>;
+  categories(): Promise<Category[]>;
+  skills(): Promise<Skill[]>;
+  dashboard(): Promise<Dashboard>;
+  removeContent(id: string): Promise<void>;
+  courseContents(id: string): Promise<ContentOrderItem[]>;
+  reorderContents(courseId: string, ids: string[]): Promise<ContentOrderItem[]>;
 }
 export class ServiceError extends Error {
   constructor(message: string, public status = 0, public fields: string[] = []) { super(message); }

@@ -7,13 +7,15 @@ async (page) => {
   page.on('pageerror', error => errors.push(error.message));
   page.on('dialog', dialog => dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss());
   await page.unroute('**/api/ui/**');
+  await page.unroute('**/api/auth/**');
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`${base}/favicon.svg`);
   const fixtures = await page.evaluate(async () => {
-    const { emptyContent, emptyCourse } = await import('/src/domain/model.ts');
+    const { emptyContent, emptyCourse, categories, skills } = await import('/src/domain/model.ts');
     return {
       course: { ...emptyCourse(), id: '1', title: 'API 검증 과정', learningGoal: '동작 확인' },
       content: emptyContent(),
+      categories, skills,
     };
   });
   let course = fixtures.course;
@@ -22,6 +24,7 @@ async (page) => {
   let courseLoadFailures = 100, catalogFailures = 0, saveFailure = 0, logoutFailure = 0;
   let publishFailures = 1, creates = 0, patches = 0, catalogReads = 0;
   const media = { id: '5', name: 'demo-sample.mp4', type: 'video/mp4', kind: 'video', size: 13172, duration: 7 };
+  await page.route('**/api/auth/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ token: 'contract-bearer', role: 'ADMIN' }) }));
   await page.route('**/api/ui/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace('/api/ui', '');
@@ -29,6 +32,8 @@ async (page) => {
     const respond = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
     if (path === '/auth/session' || path === '/auth/login') return respond({ name: '검증 관리자', role: 'admin', csrfToken: 'contract-csrf' });
     if (path === '/auth/logout') return logoutFailure ? respond({ message: '권한 만료' }, logoutFailure) : route.fulfill({ status: 204 });
+    if (path === '/admin/categories') return respond(fixtures.categories);
+    if (path === '/admin/skills') return respond(fixtures.skills);
     if (method !== 'GET') assert(request.headers()['x-csrf-token'] === 'contract-csrf', 'CSRF 누락');
     if (path === '/admin/courses' && method === 'GET') return respond([course]);
     if (path === '/admin/courses/1' && method === 'GET') {

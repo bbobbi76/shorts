@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Eye, Plus, X } from 'lucide-react';
 import { emptyFeedback, type Catalog, type Content, type Course, ServiceError, emptyContent, publicationProblems, publishIssues, statusLabels } from '../../../domain/model';
 import { repository, catalogRepository, dataMode } from '../../../data/repository';
 import { validateContent } from '../../../domain/validation';
+import { useMetadata, MetadataStatus } from '../metadata';
 import { useApp } from '../context';
 import { toError, when } from '../../../shared/format';
 import { PageHeading, Loading, ErrorBox, SectionHeading, Field } from '../../../shared/ui';
@@ -14,6 +15,7 @@ import AdminQuizStudio from '../quiz/AdminQuizStudio';
 import { PracticeFields, FeedbackFields, ContentConnections, SubtitleFields } from './ContentFields';
 
 export function ContentEditor() {
+  const metadata = useMetadata();
   const location = useLocation();
   const publicationError = useRef(location.state?.publicationError as { message: string; status: number; fields: string[] } | undefined);
   const { id } = useParams(); const navigate = useNavigate(); const { setDirty, handleError, notify, authEpoch } = useApp();
@@ -22,7 +24,7 @@ export function ContentEditor() {
   useEffect(() => { let active = true; const alreadyLoaded = loaded.current; if (!alreadyLoaded) setLoading(true); Promise.all([repository.courses(), id && !alreadyLoaded ? repository.content(id) : Promise.resolve(null), catalogRepository.read()]).then(([list, content, catalog]) => { if (active) { setCourses(list); setCatalog(catalog); if (content) setValue(content); loaded.current = true; if (!alreadyLoaded) { const failure = publicationError.current; setError(failure ? new ServiceError(failure.message, failure.status, failure.fields) : null); publicationError.current = undefined; } } }).catch(e => { if (active) { setError(toError(e)); handleError(e); } }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [id, handleError, authEpoch, retry]);
   const change = <K extends keyof Content,>(key: K, update: Content[K]) => { setValue(v => ({ ...v, [key]: update })); setError(null); setDirty(true); };
   const quiz = (update: Partial<Content['quiz']>) => change('quiz', { ...value.quiz, ...update });
-  const issues = publishIssues(value, courses); const fieldErrors = showValidation ? publicationProblems(value, courses) : {}; const locked = busy || uploads > 0;
+  const issues = publishIssues(value, courses); const fieldErrors = showValidation ? publicationProblems(value, courses) : {}; const locked = busy || uploads > 0 || !metadata.ready;
   useEffect(() => { if (uploads > 0) setDirty(true); }, [uploads, setDirty]);
   const sections = ['기본 정보', '영상·썸네일', 'AI 퀴즈', '실습', '태그·자료', '자막'];
   const updateContent = (next: Content) => { setValue(next); setDirty(true); setError(null); };
@@ -40,7 +42,7 @@ export function ContentEditor() {
         notify('비공개로 변경했습니다. 작성 중인 변경사항은 수정 저장해 주세요.');
         return;
       }
-      validateContent(value, { ...catalog, courses });
+      validateContent(value, { ...catalog, courses, skills: metadata.skills });
       // Save content first. If publication fails, keep the returned ID to avoid duplicate creation.
       const saved = await repository.saveContent(value, !id && !created.current);
       created.current = true; savedId = saved.id;
@@ -55,6 +57,7 @@ export function ContentEditor() {
     finally { requestLock.current = false; setBusy(false); }
   }
   return <><Link className="back-link" to="/admin/contents"><ArrowLeft size={16}/>콘텐츠 목록</Link><PageHeading eyebrow="CONTENT EDITOR" title={id ? '콘텐츠 수정' : '새 콘텐츠 등록'} description="영상과 퀴즈, 실무자료를 연결해 하나의 배움을 만들어 보세요.">{!loading && <StatusBadge status={value.status}/>}</PageHeading>
+    <MetadataStatus/>
     {loading ? <Loading/> : !loaded.current ? <ErrorBox error={error} retry={() => setRetry(n => n + 1)}/> : <div className="editor-layout"><div className="editor-main">
       <div className="editor-steps">{sections.map((section, index) => <a key={section} href={`#section-${index + 1}`}><span>{String(index + 1).padStart(2, '0')}</span>{section}</a>)}</div>
       <fieldset disabled={locked}>
