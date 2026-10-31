@@ -1,0 +1,9 @@
+# AI feedback-only environment. Does not change teammates' dependency pins.
+-r ../../requirements-ai.txt
+fastapi==0.115.0
+uvicorn==0.30.6
+SQLAlchemy==2.0.35
+PyMySQL==1.1.1
+python-dotenv==1.0.1
+httpx==0.28.1
+pytest==9.1.1
