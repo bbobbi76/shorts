@@ -1,4 +1,4 @@
-import { categories, skills, emptyContent, emptyCourse, emptyFeedback, emptyPractice, ServiceError, type Catalog, type Content, type Course, type Media } from './model';
+import { categories, skills, emptyContent, emptyCourse, emptyFeedback, emptyPractice, ServiceError, type Catalog, type Content, type Course, type Media, type Skill } from './model';
 
 export interface LocalState extends Catalog {
   schemaVersion?: number;
@@ -57,7 +57,7 @@ export function validateCourse(c: Course) {
   if (!categories.some(v => v.id === c.categoryId)) throw new ServiceError('교육 분야를 선택해 주세요.', 422);
   if (!['INTRO', 'BASIC', 'ADVANCED'].includes(c.level) || !['DRAFT', 'PUBLISHED', 'HIDDEN'].includes(c.status)) throw new ServiceError('과정의 난이도·상태를 확인해 주세요.', 422);
 }
-export function validateContent(c: Content, catalog: Catalog & { courses: Course[] }) {
+export function validateContent(c: Content, catalog: Catalog & { courses: Course[]; skills?: Skill[] }) {
   limit(c.title, 100, '콘텐츠 제목'); limit(c.learningGoal, 500, '학습 목표'); limit(c.workUse, 255, '활용 업무'); limit(c.quiz.question, 500, '퀴즈 문제');
   c.quiz.options.forEach(o => limit(o, 255, '퀴즈 보기'));
   if (!['DRAFT', 'REVIEW', 'PUBLISHED', 'HIDDEN'].includes(c.status)) throw new ServiceError('콘텐츠 상태를 확인해 주세요.', 422);
@@ -74,7 +74,7 @@ export function validateContent(c: Content, catalog: Catalog & { courses: Course
     limit(row.text, 500, '자막');
     if ([row.startSec, row.endSec].some(v => Math.abs(v * 100 - Math.round(v * 100)) > 0.00001)) throw new ServiceError('자막 시점은 소수점 둘째 자리까지 입력해 주세요.', 422);
   }
-  if (c.tagIds.some(id => !catalog.tags.some(t => t.id === id)) || c.resourceIds.some(id => !catalog.resources.some(r => r.id === id)) || c.skillIds.some(id => !skills.some(s => s.id === id))) throw new ServiceError('연결한 태그·스킬·자료를 다시 확인해 주세요.', 422);
+  if (c.tagIds.some(id => !catalog.tags.some(t => t.id === id)) || c.resourceIds.some(id => !catalog.resources.some(r => r.id === id)) || c.skillIds.some(id => !(catalog.skills ?? skills).some(s => s.id === id))) throw new ServiceError('연결한 태그·스킬·자료를 다시 확인해 주세요.', 422);
 }
 
 // Pure field mapping for the future backend handoff. This never sends or writes data.

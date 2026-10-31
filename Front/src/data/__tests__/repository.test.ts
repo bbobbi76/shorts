@@ -79,14 +79,14 @@ describe('예시 저장소', () => {
 
 describe('실제 API 어댑터 계약', () => {
   it('추가 관리자 기능도 기존 로그인 세션과 CSRF 토큰을 공유한다', async () => {
-    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ name: '운영자', role: 'admin', csrfToken: 'shared-csrf' }));
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async url => String(url) === '/api/auth/login' ? Response.json({ token: 'legacy-token', role: 'ADMIN' }) : Response.json({ name: '운영자', role: 'admin', csrfToken: 'shared-csrf' }));
     const api = createApiRepository('/api/ui', fetcher);
     await api.login('admin@workfit.dev', 'test-password');
     await api.readCatalog();
     await api.saveTag({ id: 'tag-uuid', name: '함수', tagType: 'FUNCTION', synonyms: [] });
     await api.saveResource({ id: 'resource-uuid', title: '자료', resourceType: 'PROMPT', description: '', file: null, promptText: '질문', categoryId: '', status: 'DRAFT' });
-    expect(fetcher.mock.calls[1][0]).toBe('/api/ui/admin/catalog');
-    for (const [url, init] of fetcher.mock.calls.slice(2)) {
+    expect(fetcher.mock.calls[2][0]).toBe('/api/ui/admin/catalog');
+    for (const [url, init] of fetcher.mock.calls.slice(3)) {
       expect(url).toMatch(/\/api\/ui\/admin\/(tags|resources)$/);
       expect(init?.credentials).toBe('include');
       expect(new Headers(init?.headers).get('X-CSRF-Token')).toBe('shared-csrf');

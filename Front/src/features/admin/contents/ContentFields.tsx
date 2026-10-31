@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { categoryName, skills, statusLabels, emptyFeedback, type Catalog, type Content, type Subtitle } from '../../../domain/model';
+import { statusLabels, emptyFeedback, type Catalog, type Content, type Subtitle } from '../../../domain/model';
 import { Field as FormField } from '../../../shared/ui';
+import { useMetadata } from '../metadata';
 import { tagLabels, resourceLabels } from '../catalog/labels';
 
 export function PracticeFields({ value, onChange }: { value: Content; onChange: (value: Content) => void }) {
@@ -23,6 +24,7 @@ export function FeedbackFields({ value, onChange }: { value: Content; onChange: 
 }
 
 export function ContentConnections({ value, catalog, onChange }: { value: Content; catalog: Catalog; onChange: (value: Content) => void }) {
+  const { categories, skills } = useMetadata(); const categoryName = (id: string) => categories.find(c => c.id === id)?.name ?? '분야 확인 필요';
   const toggle = (key: 'tagIds' | 'skillIds' | 'resourceIds', id: string) => onChange({ ...value, [key]: value[key].includes(id) ? value[key].filter(v => v !== id) : [...value[key], id] });
   return <div className="wf-fields"><h3>검색 태그</h3><p className="help">태그에 등록한 동의어도 같은 검색어로 사용할 수 있습니다.</p><div className="wf-checks">{catalog.tags.map(t => <label key={t.id}><input type="checkbox" checked={value.tagIds.includes(t.id)} onChange={() => toggle('tagIds', t.id)}/><span>{t.name}<small>{tagLabels[t.tagType]}{t.synonyms.length ? ` · ${t.synonyms.join(', ')}` : ''}</small></span></label>)}</div>{!catalog.tags.length && <p className="help">검색 태그 관리에서 태그를 먼저 등록해 주세요.</p>}
     <h3>스킬</h3><div className="wf-checks">{skills.map(s => <label key={s.id}><input type="checkbox" checked={value.skillIds.includes(s.id)} onChange={() => toggle('skillIds', s.id)}/><span>{s.name}<small>{categoryName(s.categoryId)} · {s.description}</small></span></label>)}</div>
