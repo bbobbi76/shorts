@@ -1,0 +1,19 @@
+import React from 'react';
+import { useRef, useState } from 'react';
+import { ArrowDownToLine, FileText, ImagePlus, LoaderCircle, UploadCloud } from 'lucide-react';
+import { type Media, type MediaKind, ServiceError, filePolicies } from '../../../domain/model';
+import { repository } from '../../../data/repository';
+import { useApp } from '../context';
+import { toError, fileSize } from '../../../shared/format';
+import { ErrorBox } from '../../../shared/ui';
+import { useMediaUrl } from './useMediaUrl';
+import { inspectMedia } from './inspectMedia';
+
+export function UploadField({ kind, label, media, onChange, onBusy, validationError }: { kind: MediaKind; label: string; media: Media | null; onChange: (media: Media | null) => void; onBusy: (busy: boolean) => void; validationError?: string }) {
+  const [busy, setBusy] = useState(false); const [error, setError] = useState<ServiceError | null>(null); const { handleError } = useApp(); const input = useRef<HTMLInputElement>(null); const view = useMediaUrl(media);
+  const policy = filePolicies[kind]; const inputId = React.useId(); const uploadLock = useRef(false);
+  return <div className="upload-field" aria-busy={busy}><label className="field-label" htmlFor={inputId}>{label}{kind === 'video' && <span className="required" aria-hidden="true">*</span>}</label><input id={inputId} tabIndex={-1} aria-invalid={!!validationError} aria-describedby={validationError ? `${inputId}-error` : undefined} ref={input} className="sr-only" aria-label={`${label} 파일 선택`} type="file" accept={policy.accept} onChange={async event => { const file = event.target.files?.[0]; if (!file || busy || uploadLock.current) return; uploadLock.current = true; setError(null); setBusy(true); onBusy(true); try { const metadata = await inspectMedia(file, kind); const result = await repository.upload(file, kind, metadata); onChange({ ...metadata, ...result }); } catch (e) { setError(toError(e)); handleError(e); } finally { uploadLock.current = false; setBusy(false); onBusy(false); if (input.current) input.current.value = ''; } }}/>
+    {media ? <div className={`uploaded ${kind === "practice" || kind === "resource" ? "document-upload" : ""}`}><div className="upload-preview">{kind === 'video' && view.url ? <video src={view.url} controls preload="metadata" onError={() => setError(new ServiceError('영상 재생에 실패했습니다. 파일을 확인하거나 다시 선택해 주세요.'))}/> : kind === 'thumbnail' && view.url ? <img src={view.url} alt="선택한 썸네일"/> : <FileText size={28}/>}</div><strong>{media.name}</strong><small>{fileSize(media.size)}{media.duration ? ` · ${Math.round(media.duration)}초` : ''}{media.width && media.height ? ` · ${media.width}×${media.height}` : ''}</small><div className="button-row"><button className="text-button" type="button" disabled={busy} onClick={() => input.current?.click()}>파일 변경</button><button className="text-button danger" type="button" disabled={busy} onClick={() => onChange(null)}>제거</button></div>{view.error ? <div role="alert" className="inline-error">{view.error}<button className="text-button" type="button" onClick={view.retry}>다시 불러오기</button></div> : view.url && (kind === 'practice' || kind === 'resource') ? <a className="text-button" href={view.url} download={media.name}><ArrowDownToLine size={15}/>파일 확인</a> : null}</div> : <button type="button" className="upload-box" disabled={busy} onClick={() => input.current?.click()}>{busy ? <LoaderCircle size={25} className="spin"/> : kind === 'thumbnail' ? <ImagePlus size={26}/> : <UploadCloud size={26}/>}<strong>{busy ? '파일 확인 및 업로드 중…' : '파일을 선택해 주세요'}</strong><span>{kind === 'video' ? 'MP4' : kind === 'thumbnail' ? 'JPG, PNG' : 'XLSX, XLS, CSV, PDF, DOCX, TXT'} · 최대 {policy.limit}MB</span></button>}
+    {validationError && <p id={`${inputId}-error`} className="field-error">{validationError}</p>}{busy && media && <p className="help" role="status">새 파일 업로드 중… 기존 파일을 유지합니다.</p>}<ErrorBox error={error}/>
+  </div>;
+}

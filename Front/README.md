@@ -1,4 +1,4 @@
-# 실무 한 컷 · WorkFit DB 구조 반영 프론트
+# 실무 한 컷 · 관리자·사용자 프론트
 
 기존 React·TypeScript·Vite 프론트를 유지하면서 WorkFit DB의 필드와 상태에 맞췄습니다. 설정이 없으면 목업 모드로 동작합니다. 실제 API 연결은 `.env.example`을 `.env.local`로 복사한 뒤 실행합니다. 서버 실행과 개발 계정은 [연동 안내](../backend/docs/INTEGRATION_GUIDE.md)를 참고합니다.
 
@@ -42,9 +42,9 @@ http://127.0.0.1:5173/admin/contents 에 접속합니다. `start-local.cmd`를 �
 
 ## 저장 방식
 
-내용과 파일 Blob을 기존 IndexedDB `douzone-admin-demo-v1`에 저장합니다. 이전 데이터의 필드를 자동으로 옮기며 기존 파일·퀴즈·실습 안내를 보존합니다. 이전 직무·주제는 참고 정보로 남깁니다. 이전 과정에 공개 상태가 없으면 초안으로 옮기므로 과정에서 공개 상태를 선택해 저장하세요.
+목업 모드에서는 내용과 파일 Blob을 기존 IndexedDB `douzone-admin-demo-v1`에 저장합니다. 이전 데이터의 필드를 자동으로 옮기며 기존 파일·퀴즈·실습 안내를 보존합니다. 이전 직무·주제는 참고 정보로 남깁니다. 이전 과정에 공개 상태가 없으면 초안으로 옮기므로 과정에서 공개 상태를 선택해 저장하세요.
 
-데이터는 접속 주소·브라우저별로 분리됩니다. `VITE_DATA_MODE=api`가 있어도 실행 저장소는 로컬로 고정됩니다. Vite API 프록시도 제거했습니다. 이전 API 어댑터는 과거 테스트를 위해 코드에 남아 있지만 앱 실행 저장소에서 사용하지 않습니다.
+목업 데이터는 접속 주소·브라우저별로 분리됩니다. `VITE_DATA_MODE=api`이면 관리자·카탈로그·사용자 조회 모두 `/api/ui` API를 사용합니다. Vite는 `/api` 요청을 `http://127.0.0.1:8000`으로 전달합니다. 서버 연결에 실패해도 목업으로 자동 전환하지 않습니다. 환경 설정을 변경하면 개발 서버를 다시 시작하세요.
 
 ## 검증
 
@@ -53,4 +53,30 @@ npm.cmd test
 npm.cmd run build
 ```
 
-변경 범위와 DB 필드 대응은 [WORKFIT_DB_ALIGNMENT.md](docs/WORKFIT_DB_ALIGNMENT.md), 검증 결과는 [VERIFICATION_WORKFIT.md](docs/VERIFICATION_WORKFIT.md)를 확인하세요. 이전 문서의 API 계약·연결 방법은 과거 제안이며 이 버전에는 적용하지 않습니다.
+이번 프론트 작업 요약은 [WEEK5_FRONTEND_WORK.md](docs/WEEK5_FRONTEND_WORK.md), 현재 폴더 구조와 관리자 보완·검증 내용은 [ADMIN_REVIEW_WEEK5.md](docs/ADMIN_REVIEW_WEEK5.md), 현재 API 요청 형식은 [API_CONTRACT.md](docs/API_CONTRACT.md)를 확인하세요. [WORKFIT_DB_ALIGNMENT.md](docs/WORKFIT_DB_ALIGNMENT.md)와 [VERIFICATION_WORKFIT.md](docs/VERIFICATION_WORKFIT.md)는 10월 25일 프론트 전용 작업 당시의 기록입니다.
+
+## 소스 구조
+
+```text
+src/
+  main.tsx               # 진입점과 화면 경로
+  app/styles.css         # 앱 공통 스타일
+  features/
+    admin/               # 관리자 화면과 관리자 전용 상태
+      auth/              # 로그인
+      courses/           # 과정 목록·편집
+      contents/          # 콘텐츠 목록·편집·미리보기·세부 입력
+      catalog/           # 검색 태그·실무자료 관리
+      media/             # 업로드·파일 미리보기
+      quiz/              # 기존 AI 퀴즈 화면 예시
+    learner/             # 기존 사용자 화면과 학습 목업
+  shared/                # 공통 폼·모달·오류 표시·날짜/파일 크기 표시
+  domain/                # 데이터 타입·공개 조건·검증·기존 데이터 변환
+  data/
+    repository.ts        # 목업/API 선택과 앱이 사용하는 저장소
+    config.ts            # 환경 설정
+    api/                 # 관리자·사용자 HTTP 어댑터
+    mock/                # IndexedDB 및 관리자·사용자 목업 저장소
+```
+
+관리자 기능은 해당 `features/admin/` 하위 폴더에서 수정하고, 서버 경로·요청 형식은 `data/api/`, 공통 데이터 타입은 `domain/model.ts`에서 관리합니다. IndexedDB 이름과 기존 데이터 변환 규칙은 유지했습니다.
