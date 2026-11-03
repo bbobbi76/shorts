@@ -1,0 +1,26 @@
+diff --git a/backend/app/main.py b/backend/app/main.py
+index 39fe16a..321e4ec 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -53,6 +53,10 @@ app.include_router(tags.router)
+ app.include_router(ui_router)
+ # 원본 /files 정적 경로는 초안 파일도 노출하므로 인증·공개 검사를 하는 UI 파일 경로를 사용합니다.
+ 
++# AI 검색: POST /api/ai/search, 공개 콘텐츠만 검색, DB 자막을 자동으로 인덱싱 (ai-search/docs/INTEGRATION.md)
++from ai_search.integration import install_search  # noqa: E402
++install_search(app, SessionLocal)
++
+ 
+ @app.get("/api/health", tags=["상태"])
+ def health():
+diff --git a/backend/requirements.txt b/backend/requirements.txt
+index b7aef17..5282b80 100644
+--- a/backend/requirements.txt
++++ b/backend/requirements.txt
+@@ -6,3 +6,6 @@ cryptography==43.0.1
+ bcrypt==4.2.0
+ python-multipart==0.0.12
+ python-dotenv==1.0.1
++
++# AI 검색 (ai-search 폴더를 설치, 백엔드 폴더에서 pip install -r requirements.txt)
++-e ../ai-search

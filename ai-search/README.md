@@ -30,36 +30,20 @@ API 문서: http://localhost:8001/docs
 
 ## 백엔드에 붙이기
 
-```python
-import sys
-sys.path.append("../ai-search")   # backend 폴더 기준. 또는 PYTHONPATH에 ai-search 폴더 추가
-
-from ai_search import router as search_router, get_visible_filter
-
-app.include_router(search_router)            # → POST /search
-
-# 비공개 콘텐츠 제외: 검색된 video_id 중 공개된 것만 돌려주는 함수로 바꿔 끼운다
-def public_only():
-    def visible(video_ids: list[str]) -> list[str]:
-        return [...]  # DB에서 id IN video_ids AND 공개 상태인 Content.id (문자열로)
-    return visible
-
-app.dependency_overrides[get_visible_filter] = public_only
-```
-
-백엔드 requirements에 `chromadb`, `google-genai`를 추가해야 합니다.
-
-### 영상 공개·수정·비공개 시 인덱스 갱신
+백엔드 `main.py`에 두 줄과 `requirements.txt`에 `-e ../ai-search` 한 줄이면 됩니다. 자세한 방법과 적용할 패치는 [docs/INTEGRATION.md](docs/INTEGRATION.md)에 있습니다.
 
 ```python
-from ai_search import Segment, get_search_service
-
-service = get_search_service()
-service.index_video(str(content.id), [Segment(start, end, text), ...], title=content.title)  # 공개·수정
-service.delete_video(str(content.id))                                                       # 비공개·삭제
+from ai_search.integration import install_search
+install_search(app, SessionLocal)   # → POST /api/ai/search
 ```
 
-`index_video`는 같은 영상의 기존 자막을 통째로 교체합니다.
+`install_search`가 하는 일:
+
+- 라우터를 `/api/ai` 아래에 붙입니다.
+- 검색 결과에 과정과 콘텐츠가 모두 공개인 영상만 남깁니다 (DB 조회).
+- 백엔드가 켜질 때와 1분마다 공개 콘텐츠의 DB 자막(`subtitles`)으로 인덱스를 맞춥니다. 바뀐 콘텐츠만 다시 인덱싱하고 공개가 풀린 콘텐츠는 지웁니다. 서비스 인덱스는 `chroma_service/`에 따로 둡니다.
+
+직접 붙일 때는 `router`, `get_visible_filter`, `get_search_service().index_video(...)`/`delete_video(...)`를 그대로 쓸 수 있습니다. `index_video`는 같은 영상의 기존 자막을 통째로 교체합니다.
 
 ## `POST /search`
 
@@ -95,7 +79,7 @@ service.delete_video(str(content.id))                                           
 
 | 상태 코드 | 의미 |
 |---|---|
-| 422 | 검색어가 비었거나 200자 초과 |
+| 422 | 검색어가 비었거나 공백뿐이거나 200자 초과 (백엔드에 붙이면 백엔드 공통 형식의 400) |
 | 503 | Gemini 임베딩 호출 실패. 재시도 안내 (필요하면 제목 검색으로 대체) |
 
 ## 자막 데이터 (`data/subtitles.json`)

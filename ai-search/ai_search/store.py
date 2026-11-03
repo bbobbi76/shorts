@@ -23,8 +23,13 @@ class SubtitleStore:
             name=collection, metadata={"hnsw:space": "cosine"}
         )
 
-    def replace_video(self, video_id: str, chunks: list[Chunk], embeddings: list[list[float]]) -> int:
-        """영상 자막을 통째로 교체한다. 자막이 수정돼 청크 수가 줄어도 이전 청크가 남지 않게."""
+    def replace_video(
+        self, video_id: str, chunks: list[Chunk], embeddings: list[list[float]], signature: str = ""
+    ) -> int:
+        """영상 자막을 통째로 교체한다. 자막이 수정돼 청크 수가 줄어도 이전 청크가 남지 않게.
+
+        signature는 인덱싱한 제목·자막의 지문으로, 다음 동기화 때 바뀐 영상만 다시 인덱싱하는 데 쓴다.
+        """
         self.delete_video(video_id)
         if not chunks:
             return 0
@@ -32,12 +37,19 @@ class SubtitleStore:
             ids=[f"{video_id}:{c.index}" for c in chunks],
             embeddings=embeddings,
             documents=[c.text for c in chunks],
-            metadatas=[{"video_id": video_id, "start": c.start, "end": c.end} for c in chunks],
+            metadatas=[
+                {"video_id": video_id, "start": c.start, "end": c.end, "signature": signature} for c in chunks
+            ],
         )
         return len(chunks)
 
     def delete_video(self, video_id: str) -> None:
         self._collection.delete(where={"video_id": video_id})
+
+    def signatures(self) -> dict[str, str]:
+        """인덱스에 들어 있는 영상 ID와 지문 (지문 없이 인덱싱한 영상은 빈 문자열)"""
+        metadatas = self._collection.get(include=["metadatas"])["metadatas"]
+        return {m["video_id"]: m.get("signature", "") for m in metadatas}
 
     def count(self) -> int:
         return self._collection.count()
