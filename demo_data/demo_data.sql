@@ -1,5 +1,5 @@
 -- WorkFit 시연 데이터: 과정 3개, 콘텐츠 12개(샘플 영상·썸네일·자막), 퀴즈 12개, 실습 11개
--- 사용: backend init_db.py로 DB를 만든 뒤 이 파일을 실행하고, uploads 폴더를 backend/uploads로 복사한다 (demo_data/README.md)
+-- 사용: backend 폴더에서 python init_db.py --demo (init_db_demo.patch 적용 후). 직접 넣을 때는 새 DB에 이 파일을 실행하고 uploads 폴더를 backend/uploads로 복사한다 (demo_data/README.md)
 -- 영상은 시연용 샘플 영상이며 실제 강의가 아니다.
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
