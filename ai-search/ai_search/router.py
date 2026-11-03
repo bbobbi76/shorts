@@ -35,7 +35,8 @@ def get_visible_filter() -> VisibleFilter | None:
 
 
 class SearchRequest(BaseModel):
-    query: str = Field(min_length=1, max_length=200)
+    # 공백만 있는 검색어도 입력값 검증에서 거절해야 백엔드에 붙였을 때 오류 형식이 백엔드 공통 형식으로 맞춰진다
+    query: str = Field(min_length=1, max_length=200, pattern=r"\S")
     top_k: int = Field(default=5, ge=1, le=20)
     group_by_video: bool = True
 
@@ -73,8 +74,6 @@ def search(
     visible: VisibleFilter | None = Depends(get_visible_filter),
 ):
     query = body.query.strip()
-    if not query:
-        raise HTTPException(422, "검색어를 입력하세요")
     try:
         outcome = service.search(query, body.top_k, body.group_by_video, visible)
     except EmbeddingError:

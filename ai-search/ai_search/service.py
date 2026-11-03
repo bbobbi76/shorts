@@ -51,17 +51,21 @@ class SearchService:
         # 1위 영상보다 이만큼 이상 낮은 결과는 버린다 (None이면 끔). 약하게 걸린 영상이 줄줄이 붙지 않게
         self._relative_margin = relative_margin
 
-    def index_video(self, video_id: str, segments: list[Segment], title: str = "") -> int:
+    def index_video(self, video_id: str, segments: list[Segment], title: str = "", signature: str = "") -> int:
         """영상 공개·수정 시 호출. 같은 video_id의 기존 자막은 교체된다."""
         chunks = chunk_segments(segments)
         # 제목을 붙여 임베딩하면 자막에 기능 이름이 안 나와도 걸린다. 저장되는 텍스트는 자막 원문.
         prefix = f"{title}\n" if title else ""
         embeddings = self._embedder.embed([prefix + c.text for c in chunks], "document") if chunks else []
-        return self._store.replace_video(video_id, chunks, embeddings)
+        return self._store.replace_video(video_id, chunks, embeddings, signature)
 
     def delete_video(self, video_id: str) -> None:
         """영상 비공개·삭제 시 호출."""
         self._store.delete_video(video_id)
+
+    def indexed_signatures(self) -> dict[str, str]:
+        """인덱싱된 영상 ID와 지문. 동기화할 때 바뀌거나 사라진 영상을 찾는 데 쓴다."""
+        return self._store.signatures()
 
     def search(
         self,
