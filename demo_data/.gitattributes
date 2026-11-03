@@ -1,0 +1,2 @@
+# 패치는 git apply가 그대로 읽도록 줄바꿈을 바꾸지 않는다
+*.patch -text
