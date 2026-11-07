@@ -104,6 +104,7 @@ class PublicContentOut(BaseModel):
     video: MediaOut | None = None
     thumbnail: MediaOut | None = None
     practiceText: str = ""
+    practiceId: int | None = None
     practice: MediaOut | None = None
     resource: MediaOut | None = None
     workUse: str = ""

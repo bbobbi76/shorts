@@ -41,6 +41,8 @@ def env(tmp_path, monkeypatch):
         with factory() as db:
             yield db
     app.dependency_overrides[get_db] = override
+    from ai.practice_feedback import get_feedback_db
+    app.dependency_overrides[get_feedback_db] = override
     monkeypatch.setattr(ui_api, "UPLOAD_DIR", tmp_path)
     monkeypatch.setattr(files, "UPLOAD_DIR", tmp_path)
     ui_api.sessions.clear()
@@ -81,6 +83,68 @@ def test_auth_csrf_roles_and_logout(env):
     assert c.post("/api/ui/admin/courses", json={"id": "x", "title": "x"}).status_code == 403
     assert c.post("/api/ui/auth/logout", headers=h).status_code == 204
     assert c.get("/api/ui/auth/session").status_code == 401
+
+
+def test_week6_course_thumbnail_and_feedback_end_to_end(env, monkeypatch):
+    from app.models import Practice
+    from app.routers import ai_feedback
+    from ai.schemas import FeedbackResponse
+
+    client, factory, path = env
+    (path / "course.jpg").write_bytes(b"course-image")
+    with factory() as db:
+        image = StoredFile(id=10, file_type="THUMBNAIL", original_name="course.jpg",
+                           stored_path="course.jpg", mime_type="image/jpeg", size_bytes=12, uploaded_by=1)
+        db.add(image)
+        db.flush()
+        db.add(Course(id=10, title="공개 과정", category_id=1, created_by=1,
+                      status="PUBLISHED", thumbnail_file_id=10))
+        db.flush()
+        db.add(Content(id=10, title="공개 실습", course_id=10, created_by=1, status="PUBLISHED"))
+        db.flush()
+        db.add(Practice(id=20, content_id=10, title="합계", instruction="SUM 함수로 합계를 구하세요",
+                        expected_result="6", result_type="NUMBER", tolerance=0,
+                        required_function="SUM", answer_formula="=SUM(A1:A3)"))
+        db.commit()
+
+    public = client.get("/api/ui/contents/10")
+    assert public.status_code == 200
+    assert public.json()["practiceId"] == 20
+    assert "answerFormula" not in public.text and "expectedResult" not in public.text
+    assert client.get("/api/ui/media/10/file").content == b"course-image"
+
+    seen = []
+    def evaluate(request):
+        seen.append(request)
+        return FeedbackResponse(status="correct", score=100, good_points=["합계 수식"],
+                                improvement_points=[], corrected_answer="=SUM(A1:A3)",
+                                explanation="정답", next_practice="다음 실습")
+    monkeypatch.setattr(ai_feedback, "evaluate_answer", evaluate)
+    monkeypatch.setenv("FEEDBACK_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "offline-test-key")
+    response = client.post("/api/ai/feedback", json={
+        "practice_id": public.json()["practiceId"], "learner_answer": "=SUM(A1:A3)",
+        "expected_answer": "client-forged-answer"})
+    assert response.status_code == 200, response.text
+    assert response.json()["score"] == 100
+    assert seen[0].expected_answer == "=SUM(A1:A3)"
+    with factory() as db:
+        db.get(Course, 10).status = "HIDDEN"
+        db.commit()
+    assert client.get("/api/ui/media/10/file").status_code == 404
+    assert client.get("/api/ui/contents/10").status_code == 404
+    assert client.post("/api/ai/feedback", json={"practice_id": 20, "learner_answer": "=SUM(A1:A3)"}).status_code == 404
+    assert len(seen) == 1
+
+
+def test_week6_search_is_registered_with_common_validation(env):
+    from ai_search.router import get_search_service
+    client, _, _ = env
+    app.dependency_overrides[get_search_service] = lambda: None
+    for query in ("", "   ", "a" * 201):
+        response = client.post("/api/ai/search", json={"query": query})
+        assert response.status_code == 400, response.text
+        assert "message" in response.json()
 
 
 def test_course_roundtrip_and_idempotency(env):

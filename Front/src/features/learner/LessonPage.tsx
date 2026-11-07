@@ -7,6 +7,7 @@ import { Download, usePublicMedia } from './Media';
 import { PublicError, Loading } from './BrowsePages';
 import { cleanSubtitles, formatTime, startTime, subtitleVtt, useLoad } from './library';
 import { learningStore } from './progress';
+import { PracticeFeedback } from './PracticeFeedback';
 
 export default function LessonPage() {
   const { id = '' } = useParams();
@@ -50,6 +51,7 @@ function LessonContent({ content }: { content: PublicContent }) {
           setNoteFailed(!ok); setNoteStatus(ok ? '이 브라우저에 저장했습니다.' : '메모를 저장하지 못했습니다. 브라우저 저장 설정을 확인하고 내용을 복사해 두세요.');
         }}/><div className="learn-note-meta"><span>{note.length.toLocaleString()} / 5,000자</span><span role={noteFailed ? 'alert' : 'status'}>{noteStatus}</span></div><p className="help">메모는 이 브라우저에만 보관됩니다. 과제 제출이나 AI 채점으로 전송되지 않습니다.</p></div>
       </section>
+      {content.practiceId && <PracticeFeedback practiceId={content.practiceId}/>}
       <div className="learn-next"><Link className="button" to={`/learn/courses/${encodeURIComponent(content.courseId)}`}>과정 목록</Link>{next && <Link className="button primary" to={`/learn/contents/${encodeURIComponent(next.id)}`}>다음 영상<ArrowRight size={17}/></Link>}</div>
     </div><aside className="learn-lesson-sidebar" aria-label="과정의 다른 영상"><h2>함께 학습하기</h2>{course.error ? <div className="learn-sidebar-error" role="alert"><p>과정 목록을 불러오지 못했습니다.</p><button className="text-button" onClick={course.retry}>다시 시도</button></div> : !course.value ? <p role="status">과정 불러오는 중…</p> : <ol>{items.map((item, i) => <li key={item.id}><Link aria-current={item.id === content.id ? 'page' : undefined} to={`/learn/contents/${encodeURIComponent(item.id)}`}><span>{String(i + 1).padStart(2, '0')}</span><div><strong>{item.title}</strong><small>{formatTime(item.video?.duration)}</small></div>{item.id === content.id && <Play size={14}/>}</Link></li>)}</ol>}<p className="help">시청 위치와 메모는 <Link to="/learn/history">내 학습 기록</Link>에서 다시 볼 수 있어요.</p></aside></div>
   </>;
