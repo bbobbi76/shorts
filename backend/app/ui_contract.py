@@ -97,6 +97,8 @@ class SkillOut(BaseModel):
 
 
 class PublicContentOut(BaseModel):
+    practiceId: int | None = None
+    practiceTitle: str = ""
     id: str
     courseId: str
     title: str

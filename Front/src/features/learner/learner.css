@@ -1,4 +1,10 @@
 .learner-live { min-height:100vh; background:#f8faf7; color:#203c31; }
+.learn-feedback form { display:grid; gap:12px; }
+.learn-feedback label { font-weight:600; }
+.learn-feedback select,.learn-feedback textarea { box-sizing:border-box; width:100%; padding:12px; border:1px solid #d7e1db; border-radius:8px; background:white; color:inherit; font:inherit; }
+.learn-feedback .button { justify-self:start; }
+.learn-feedback-result { margin-top:20px; padding:18px; border:1px solid #d7e1db; border-radius:10px; }
+.learn-feedback-result pre { white-space:pre-wrap; overflow-wrap:anywhere; }
 .learner-live main { max-width:1240px; min-height:64vh; padding:40px 40px 64px; }
 .learner-live .learner-header { padding:22px max(32px,calc((100vw - 1160px)/2)); gap:28px; }
 .learner-live .learner-header nav a { color:#6a786d; font-size:13px; border-bottom:2px solid transparent; }

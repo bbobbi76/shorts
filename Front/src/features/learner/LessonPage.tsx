@@ -7,6 +7,7 @@ import { Download, usePublicMedia } from './Media';
 import { PublicError, Loading } from './BrowsePages';
 import { cleanSubtitles, formatTime, startTime, subtitleVtt, useLoad } from './library';
 import { learningStore } from './progress';
+import PracticeFeedback from './PracticeFeedback';
 
 export default function LessonPage() {
   const { id = '' } = useParams();
@@ -41,6 +42,7 @@ function LessonContent({ content }: { content: PublicContent }) {
         <div role="tabpanel" id="learn-materials" aria-labelledby="learn-materials-tab" hidden={tab !== 'materials'}>
           {content.practiceText && <div className="learn-practice"><h2>직접 해보기</h2><p className="pre-wrap">{content.practiceText}</p></div>}
           {content.practice && <Download media={content.practice}/>}{content.resource && <Download media={content.resource}/>}
+          <PracticeFeedback key={content.id} content={content}/>
           {content.resources?.map(resource => <section className="learn-resource" key={resource.id}><h2>{resource.title}</h2><p className="pre-wrap">{resource.description}</p>{resource.file && <Download media={resource.file}/ >}{resource.resourceType === 'PROMPT' && resource.promptText && <Prompt text={resource.promptText}/>}</section>)}
           {!content.practiceText && !content.practice && !content.resource && !content.resources?.length && <p className="learn-muted">이 영상에 등록된 실습·업무자료가 없습니다.</p>}
         </div>

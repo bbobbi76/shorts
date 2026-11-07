@@ -16,6 +16,7 @@ from .config import FRONTEND_ORIGIN
 from .database import SessionLocal
 from .errors import register_error_handlers
 from .routers import contents, courses, dashboard, meta, resources, tags
+from .routers.ai_feedback import router as feedback_router
 from .ui_api import router as ui_router
 
 logging.basicConfig(level=logging.INFO)
@@ -51,6 +52,7 @@ app.include_router(files.admin_router)
 app.include_router(resources.router)
 app.include_router(tags.router)
 app.include_router(ui_router)
+app.include_router(feedback_router)
 # 원본 /files 정적 경로는 초안 파일도 노출하므로 인증·공개 검사를 하는 UI 파일 경로를 사용합니다.
 
 

@@ -177,7 +177,7 @@ DB 명세의 ‘2회차부터 모범 수식 공개’ 정책 역시 이 API에�
 | --- | --- |
 | `FEEDBACK_PROVIDER` | `gemini`(기본값) 또는 `openai` |
 | `GEMINI_API_KEY` | 실제 Gemini 비밀키 |
-| `GEMINI_FEEDBACK_MODEL` | 기본값 `gemini-2.5-flash` |
+| `GEMINI_FEEDBACK_MODEL` | 기본값 `gemini-3.1-flash-lite` (실제 DB 과제·Gemini 평가 검증 성공). 명시한 환경 변수가 우선. Gemini 3 계열은 낮은 thinking level과 JSON Schema를 사용 |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | 선택 제공자 설정, 모델 기본값 `gpt-4o-mini` |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | 기존 팀 MySQL 설정 |
 | `RUN_GEMINI_LIVE` | 실제 외부 API 테스트를 실행할 때만 `1` |

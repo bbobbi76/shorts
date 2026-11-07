@@ -1,6 +1,7 @@
 .env
 .env.local
 .venv/
+.verification/
 __pycache__/
 .pytest_cache/
 node_modules/

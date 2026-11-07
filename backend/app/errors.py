@@ -35,7 +35,10 @@ def register_error_handlers(app: FastAPI) -> None:
         return JSONResponse(status_code=e.status, content=_body(e.message, e.details))
 
     @app.exception_handler(RequestValidationError)
-    async def handle_validation(_: Request, e: RequestValidationError):
+    async def handle_validation(request: Request, e: RequestValidationError):
+        if request.url.path.rstrip('/') in {"/api/ai/feedback", "/api/ai/feedback/mock"}:
+            # Preserve the feedback contract without changing existing UI/admin errors.
+            return JSONResponse(status_code=422, content=_body("실습 번호와 답안 형식을 확인해 주세요."))
         details = []
         for err in e.errors():
             field = ".".join(str(p) for p in err.get("loc", []) if p not in ("body", "query", "path"))
