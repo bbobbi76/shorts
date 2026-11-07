@@ -61,6 +61,7 @@ def test_gemini_validates_json(monkeypatch):
     monkeypatch.setitem(sys.modules, "google.genai", genai_module)
     got = ai_feedback.evaluate_gemini(REQ)
     assert got.score == 70
+    assert genai_module.Client.call_args.kwargs["http_options"]["api_version"] == "v1beta"
     fake_client.models.generate_content.assert_called_once()
 
 
