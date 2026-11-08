@@ -213,6 +213,8 @@ def content_out(db, c, public=False):
             "subtitles": [{"id": str(r.id), "startSec": float(r.start_sec), "endSec": float(r.end_sec), "text": r.caption_text} for r in subtitles],
             "updatedAt": c.updated_at.isoformat() if c.updated_at else ""}
     if public:
+        data["practiceId"] = p.id if p else None
+        data["practiceTitle"] = (p.title or "") if p else ""
         data["resources"] = [{k: v for k, v in resource_out(db, r).items() if k not in {"status", "categoryId"}}
                              for r in c.resources if r.status == "PUBLISHED"]
     else:

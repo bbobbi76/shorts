@@ -7,7 +7,7 @@ import json
 import os
 from pydantic import ValidationError
 
-from .schemas import FeedbackRequest, FeedbackResponse, TrustedFeedbackRequest
+from .schemas import FeedbackRequest, FeedbackResponse, TrustedFeedbackRequest, ProviderAssessment
 from .rubric import grade_request, validate_model_assessment
 
 
@@ -126,18 +126,31 @@ def evaluate_gemini(request: FeedbackRequest) -> FeedbackResponse:
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30000))
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
+        timeout=60000, retry_options={"attempts": 1}))
     payload = _evaluation_payload(request)
     prompt = "과제 데이터(JSON):\n" + json.dumps(payload, ensure_ascii=False)
-    model = os.getenv("GEMINI_FEEDBACK_MODEL", "gemini-2.5-flash")
+    model = os.getenv("GEMINI_FEEDBACK_MODEL", "gemini-3.1-flash-lite")
+    schema = (ProviderAssessment if isinstance(request, TrustedFeedbackRequest)
+              else FeedbackResponse).model_json_schema()
+    if isinstance(request, TrustedFeedbackRequest):
+        schema["required"] = list(dict.fromkeys([*schema["required"], "criterion_checks"]))
+    options = dict(
+        system_instruction=SYSTEM_PROMPT + (RUBRIC_INSTRUCTION if isinstance(request, TrustedFeedbackRequest) else ""),
+        response_mime_type="application/json",
+        response_json_schema=schema,
+        max_output_tokens=4096,
+    )
+    if model.removeprefix("models/").startswith("gemini-3"):
+        # Gemini 3.8 no longer supports the old sampling parameters.
+        # Low thinking keeps this bounded rubric check within the UI wait time.
+        options["thinking_config"] = {"thinking_level": "low"}
+    else:
+        options["temperature"] = 0.2
     response = client.models.generate_content(
         model=model,
         contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT + (RUBRIC_INSTRUCTION if isinstance(request, TrustedFeedbackRequest) else ""),
-            response_mime_type="application/json",
-            temperature=0.2,
-        ),
+        config=types.GenerateContentConfig(**options),
     )
     content = response.text
     if not content:
