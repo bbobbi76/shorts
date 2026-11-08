@@ -1,9 +1,9 @@
 diff --git a/backend/app/main.py b/backend/app/main.py
-index 39fe16a..321e4ec 100644
+index 87edbe7..5188e92 100644
 --- a/backend/app/main.py
 +++ b/backend/app/main.py
-@@ -53,6 +53,10 @@ app.include_router(tags.router)
- app.include_router(ui_router)
+@@ -55,6 +55,10 @@ app.include_router(ui_router)
+ app.include_router(feedback_router)
  # 원본 /files 정적 경로는 초안 파일도 노출하므로 인증·공개 검사를 하는 UI 파일 경로를 사용합니다.
  
 +# AI 검색: POST /api/ai/search, 공개 콘텐츠만 검색, DB 자막을 자동으로 인덱싱 (ai-search/docs/INTEGRATION.md)
