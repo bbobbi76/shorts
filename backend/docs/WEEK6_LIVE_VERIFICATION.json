@@ -1,0 +1,42 @@
+{
+  "database": "workfit_jimin_week6_demo",
+  "checks": {
+    "public_counts": {
+      "courses": 3,
+      "contents": 12
+    },
+    "files": {
+      "downloaded": 38,
+      "video_range": "206/16 bytes"
+    },
+    "admin_login": "passed",
+    "search": [
+      {
+        "query": "사번으로 이름 찾고 싶어",
+        "titles": [
+          "VLOOKUP으로 다른 표에서 값 가져오기"
+        ]
+      },
+      {
+        "query": "이번 달 부서별 매출 합치려면?",
+        "titles": [
+          "SUMIF 함수로 조건별 합계 구하기",
+          "피벗 테이블로 월별·부서별 매출 요약하기",
+          "SUMIFS로 여러 조건 합계 구하기"
+        ]
+      },
+      {
+        "query": "오늘 점심 메뉴 추천해줘",
+        "titles": []
+      }
+    ],
+    "feedback": {
+      "practice_id": 2,
+      "status": "correct",
+      "score": 100
+    },
+    "hidden_contents": "content, file, feedback, search blocked; restored",
+    "hidden_courses": "content, file, feedback, search blocked; restored"
+  },
+  "result": "passed"
+}

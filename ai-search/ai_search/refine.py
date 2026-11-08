@@ -61,7 +61,7 @@ class GeminiRefiner:
 
         self._model = model
         self._client = genai.Client(
-            api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000))
+            api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000), api_version="v1beta")
         )
         self._wait_seconds = wait_seconds
         self._cache: OrderedDict[str, str | None] = OrderedDict()

@@ -11,6 +11,17 @@ from ai_search.store import SubtitleStore
 from test_search import SAMPLE
 
 
+def test_refiner_explicitly_uses_beta_api(monkeypatch):
+    from unittest.mock import Mock
+    from google import genai
+
+    client = Mock()
+    monkeypatch.setattr(genai, "Client", client)
+    refiner = GeminiRefiner("offline-test-key", "gemini-flash-lite-latest")
+    assert client.call_args.kwargs["http_options"].api_version == "v1beta"
+    refiner._pool.shutdown(wait=False)
+
+
 class FixedRefiner:
     def __init__(self, text):
         self.text = text
