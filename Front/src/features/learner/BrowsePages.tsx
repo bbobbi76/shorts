@@ -6,6 +6,7 @@ import { levelLabels } from '../../domain/model';
 import type { PublicContent, PublicCourse } from '../../domain/public-model';
 import { Cover } from './Media';
 import { formatTime, loadLibrary, searchLibrary, useLoad } from './library';
+import { aiResults, aiSearch, type AiSearchHit } from './aiSearch';
 import { learningStore, useLearningEntries } from './progress';
 
 export function PublicError({ message, retry }: { message: string; retry?: () => void }) {
@@ -39,7 +40,15 @@ export function SearchPage() {
     value ? next.set(key, value) : next.delete(key);
     next.delete('page'); setParams(next);
   }
-  const results = value ? searchLibrary(value.contents, value.courses, query, courseId, level) : [];
+  // AI 검색을 먼저 쓰고, 결과가 없거나 실패하면 기존 단어 검색 결과를 보여준다
+  const [ai, setAi] = useState<{ query: string; hits: AiSearchHit[] } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    aiSearch(query, controller.signal).then(hits => { if (!controller.signal.aborted) setAi(hits ? { query, hits } : null); });
+    return () => controller.abort();
+  }, [query]);
+  const fromAi = value && ai?.query === query ? aiResults(ai.hits, value.contents, value.courses, courseId, level) : [];
+  const results = fromAi.length ? fromAi : value ? searchLibrary(value.contents, value.courses, query, courseId, level) : [];
   const pages = Math.max(1, Math.ceil(results.length / 12));
   const page = Math.max(1, Math.min(pages, Math.floor(Number(params.get('page'))) || 1));
   const recent = !query && !courseId && !level && value ? entries.flatMap(entry => {
@@ -54,7 +63,7 @@ export function SearchPage() {
     <div className="learn-filter-bar"><label>과정<select value={courseId} onChange={event => filter('course', event.target.value)}><option value="">전체 과정</option>{value?.courses.map(course => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label><label>난이도<select value={level} onChange={event => filter('level', event.target.value)}><option value="">전체 난이도</option>{Object.entries(levelLabels).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>{(query || courseId || level) && <button className="text-button" onClick={() => { setInput(''); setParams({}); }}>검색 조건 초기화</button>}</div>
     {error ? <PublicError message={error} retry={retry}/> : !value ? <Loading/> : <>
       {recent.length > 0 && <section className="learn-section"><div className="learn-section-heading"><h2>이어서 학습하기</h2><Link to="/learn/history">시청 기록<ArrowRight size={16}/></Link></div><div className="learn-video-grid">{recent.map(({ content, course, entry }) => <VideoCard key={content.id} content={content} course={course} position={entry.position}/>)}</div></section>}
-      <section className="learn-section" aria-labelledby="video-results"><div className="learn-section-heading"><h2 id="video-results">{query ? `‘${query}’ 검색 결과` : '공개된 영상'} <span>{results.length}개</span></h2><Link to="/learn/courses">과정별로 보기<ArrowRight size={16}/></Link></div><p className="sr-only" role="status">{results.length}개의 영상이 있습니다. {page}/{pages}페이지</p>
+      <section className="learn-section" aria-labelledby="video-results"><div className="learn-section-heading"><h2 id="video-results">{query ? `‘${query}’ 검색 결과` : '공개된 영상'} <span>{results.length}개{fromAi.length ? ' · AI 검색' : ''}</span></h2><Link to="/learn/courses">과정별로 보기<ArrowRight size={16}/></Link></div><p className="sr-only" role="status">{results.length}개의 영상이 있습니다. {page}/{pages}페이지</p>
         {results.length ? <div className="learn-video-grid">{results.slice((page - 1) * 12, page * 12).map(({ content, course, match }) => {
           const entry = entries.find(item => item.contentId === content.id && item.videoId === content.video?.id);
           return <VideoCard key={content.id} content={content} course={course} match={match} position={entry && !entry.ended ? entry.position : undefined}/>;

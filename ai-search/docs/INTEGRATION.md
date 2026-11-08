@@ -79,13 +79,9 @@ DB는 읽기만 하며 DB 명세서의 `contents`·`courses`·`subtitles` 테이
 - 검색어가 비었거나 공백뿐이거나 200자를 넘으면 백엔드 공통 오류 형식(`{message, details}`)의 400, Gemini 장애 시 503(`{"detail": "..."}`)입니다.
 - 필드 설명은 [ai-search README](../README.md#post-search)를 참고하세요.
 
-## 2 프론트 (박서빈님)
+## 2 프론트 (적용 완료)
 
-패치 적용 (레포 맨 위 폴더에서):
-
-```powershell
-git apply ai-search\docs\integration\front.patch
-```
+`main`에 반영되어 있어 따로 할 일이 없습니다. 바뀐 내용은 아래와 같고, 변경 원본은 [integration/front.patch](integration/front.patch)입니다.
 
 | 파일 | 변경 |
 |---|---|
