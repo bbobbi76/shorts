@@ -9,7 +9,7 @@
 | `demo_data.sql` | 시연 데이터 INSERT문 (80KB) |
 | `uploads/` | SQL이 가리키는 실제 파일: 영상 12개, 썸네일 15개, 실습 예제 CSV 11개 (1.7MB) |
 | `quiz_practice_list.md` | 영상별 퀴즈·정답·실습·실습 정답 목록 (검토용) |
-| `init_db_demo.patch` | 백엔드 `init_db.py`에 `--demo` 옵션을 추가하는 패치 |
+| `init_db_demo.patch` | `init_db.py`에 `--demo` 옵션을 추가한 변경 기록 (이미 반영됨) |
 
 ## 들어가는 것
 
@@ -31,7 +31,7 @@
 테이블과 기본 seed를 만든 뒤 시연 데이터 SQL을 넣고, 영상·썸네일·실습 파일을 `backend/uploads`로 복사합니다.
 백엔드를 켜면(`.venv\Scripts\python -m uvicorn app.main:app --port 8000`) 사용자 화면에 과정 3개와 영상 12개가 보입니다. 관리자 로그인은 seed 관리자(`admin@workfit.dev` / `admin1234`)입니다.
 
-> `--demo`는 `init_db.py`에 [init_db_demo.patch](init_db_demo.patch)를 적용하면 생깁니다 (레포 맨 위 폴더에서 `git apply demo_data\init_db_demo.patch`). `--demo` 없이 실행하면 지금과 똑같이 동작합니다.
+> `--demo` 옵션은 `main`의 `init_db.py`에 이미 들어가 있어 패치를 따로 적용하지 않습니다. `--demo` 없이 실행하면 시연 데이터 없이 DB만 만듭니다.
 
 ### `--demo`가 없을 때 (직접 넣기)
 

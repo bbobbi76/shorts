@@ -1,6 +1,6 @@
 # WorkFit 5주차 AI 피드백 통합 결과
 
-> 최신 결과: `gemini-3.1-flash-lite`로 실제 DB 과제 평가 및 JSON·Pydantic 검증에 성공했다. 기본 모델도 변경했다. 아래 실패 기록은 이전 진단 이력이며, 최종 성공 범위와 서버 적용 방법은 [최종 실제 평가 보고서](backend/ai/FINAL_LIVE_FEEDBACK_RESULT.md)를 확인한다.
+> 최신 결과: `gemini-3.1-flash-lite`로 실제 DB 과제 평가 및 JSON·Pydantic 검증에 성공했다. 기본 모델도 변경했다. 아래 실패 기록은 이전 진단 이력이며, 최종 성공 범위와 서버 적용 방법은 [최종 실제 평가 보고서](FINAL_LIVE_FEEDBACK_RESULT.md)를 확인한다.
 
 ## 후속 실제 Gemini 진단 및 수정 (2026-11-07)
 

@@ -11,15 +11,9 @@
                                          └─ 인덱싱: 공개 콘텐츠의 DB 자막(subtitles)을 1분마다 동기화
 ```
 
-## 1 백엔드 (현지민님)
+## 1 백엔드 (적용 완료)
 
-패치 적용 (레포 맨 위 폴더에서):
-
-```powershell
-git apply ai-search\docs\integration\backend.patch
-```
-
-바뀌는 곳은 두 파일입니다.
+`main`에 반영되어 있어 따로 할 일이 없습니다. 변경 원본은 [integration/backend.patch](integration/backend.patch)이고, 바뀐 곳은 두 파일입니다.
 
 `backend/app/main.py` (라우터 등록 아래):
 
