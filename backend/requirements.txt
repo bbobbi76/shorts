@@ -1,8 +1,15 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 SQLAlchemy==2.0.35
+greenlet>=3.1
 PyMySQL==1.1.1
 cryptography==43.0.1
 bcrypt==4.2.0
 python-multipart==0.0.12
 python-dotenv==1.0.1
+
+# AI 검색 (ai-search 폴더를 설치, 백엔드 폴더에서 pip install -r requirements.txt)
+-e ../ai-search
+
+# AI feedback (Gemini comes from ai-search; OpenAI is an optional provider)
+-r ../requirements-ai.txt

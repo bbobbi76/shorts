@@ -543,9 +543,11 @@ def public_detail(cid: str, db: Session = Depends(get_db)):
 
 @router.get("/media/{mid}/file")
 def public_file(mid: str, request: Request, db: Session = Depends(get_db)):
-    visible = [c for c in public_contents(db) if any(
+    contents = public_contents(db)
+    visible_course_thumbnail = any(str(c.course.thumbnail_file_id) == mid for c in contents)
+    visible = [c for c in contents if any(
         m and m["id"] == mid for m in (content_out(db, c, True)[k] for k in ("video", "thumbnail", "practice", "resource"))) or any(r.status == "PUBLISHED" and str(r.file_id) == mid for r in c.resources)]
-    if not visible:
+    if not visible and not visible_course_thumbnail:
         raise ApiError(404, "공개된 파일이 없습니다.")
     return files.serve(get_id(db, StoredFile, mid).stored_path, request)
 

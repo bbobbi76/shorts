@@ -127,7 +127,7 @@ def evaluate_gemini(request: FeedbackRequest) -> FeedbackResponse:
     from google.genai import types
 
     client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
-        timeout=60000, retry_options={"attempts": 1}))
+        timeout=60000, retry_options={"attempts": 1}, api_version="v1beta"))
     payload = _evaluation_payload(request)
     prompt = "과제 데이터(JSON):\n" + json.dumps(payload, ensure_ascii=False)
     model = os.getenv("GEMINI_FEEDBACK_MODEL", "gemini-3.1-flash-lite")

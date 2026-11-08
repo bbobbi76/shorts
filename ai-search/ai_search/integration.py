@@ -111,6 +111,15 @@ def _sync_loop(session_factory: SessionFactory, interval_seconds: float, stop: t
             return
 
 
+def start_search_sync(session_factory: SessionFactory, interval_seconds: float = 60.0):
+    """Start synchronization during application startup; caller stops it on shutdown."""
+    stop = threading.Event()
+    worker = threading.Thread(target=_sync_loop, args=(session_factory, interval_seconds, stop),
+                              name="ai-search-sync", daemon=True)
+    worker.start()
+    return stop, worker
+
+
 def install_search(app, session_factory: SessionFactory, prefix: str = "/api/ai",
                    sync_interval_seconds: float | None = 60.0) -> threading.Event | None:
     """백엔드 앱에 AI 검색을 붙인다. sync_interval_seconds를 None으로 주면 자동 동기화를 하지 않는다.
@@ -124,7 +133,5 @@ def install_search(app, session_factory: SessionFactory, prefix: str = "/api/ai"
     app.dependency_overrides[get_visible_filter] = lambda: visible
     if sync_interval_seconds is None:
         return None
-    stop = threading.Event()
-    threading.Thread(target=_sync_loop, args=(session_factory, sync_interval_seconds, stop),
-                     name="ai-search-sync", daemon=True).start()
+    stop, _ = start_search_sync(session_factory, sync_interval_seconds)
     return stop
